@@ -1,0 +1,3101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joseph Smith MultiTimeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #F1E9D8;
+    --paper-dark: #E7DBBF;
+    --paper-deep: #DFD1AE;
+    --ink: #2A2420;
+    --ink-soft: #6b5f52;
+    --ink-faint: #9c8f7c;
+    --rule: #cabb98;
+    --rule-strong: #b3a077;
+    --brass: #a8862f;
+    --brass-dark: #7d631f;
+    --card-bg: #fbf6e9;
+    --shadow: 0 1px 2px rgba(42,36,32,0.15), 0 4px 10px rgba(42,36,32,0.08);
+    --radius: 3px;
+
+    /* Prussian blue — the period's dominant blue pigment (synthesized 1706, in
+       heavy use through the 1800s in ink, textiles and printing, and the blue of
+       cyanotype blueprints from 1842). Kept as variables so the header tone can
+       be retuned from one place. */
+    --header-top: #16304C;
+    --header-bottom: #1D3D5E;
+
+    /* One height for every interactive control in the header and toolbar, so a
+       row of them shares a common top and bottom edge. Shape alone signals the
+       type: a 20px radius pill is a button or toggle, the 3px radius is a field
+       (text input, dropdown). Controls set this via height rather than padding,
+       so differing font sizes can't push them out of alignment. */
+    --control-h: 30px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+  }
+  ::selection{ background: var(--brass); color:#fff; }
+
+  h1,h2,h3, .display{
+    font-family:'Fraunces', serif;
+  }
+
+  /* ---------- Layout shell ---------- */
+  #app{ display:flex; flex-direction:column; height:100vh; }
+
+  header.top{
+    background: linear-gradient(180deg, var(--header-top) 0%, var(--header-bottom) 100%);
+    color: #EFE6D2;
+    padding: 14px 22px 12px;
+    display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
+    border-bottom: 3px double var(--brass);
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    z-index: 30;
+  }
+  header.top h1{
+    font-size: 22px; font-weight:600; margin:0; letter-spacing:.3px;
+    color:#F3E9D0;
+  }
+  header.top .subtitle{
+    font-family:'Inter', sans-serif;
+    font-size:11px; color: #c9b98d; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .header-spacer{ flex:1; }
+  /* Lives in the footer beside the Report button, so it is sized to that bar's
+     scale rather than to --control-h: at 30px the pair would roughly double the
+     height of what is meant to be a thin hint strip. Colours are for the light
+     paper footer, not the dark header it used to sit in. */
+  .admin-toggle{
+    background: transparent;
+    border:1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family:'Inter', sans-serif;
+    font-size:10.5px;
+    font-weight:500;
+    padding:4px 9px;
+    border-radius:20px;
+    cursor:pointer;
+    letter-spacing:.04em;
+    display:inline-flex; align-items:center;
+  }
+  .admin-toggle:hover{ background: var(--paper-deep); color: var(--ink); border-color: var(--brass); }
+  .admin-toggle.unlocked{
+    background: var(--brass); color:#2A2420; border-color: var(--brass); font-weight:700;
+  }
+  .admin-toggle.unlocked:hover{ background: var(--brass-dark); color:#F3E9D0; }
+  .footer-actions{
+    display:flex; align-items:center; gap:8px; flex:0 0 auto;
+  }
+
+  .toolbar{
+    display:flex; align-items:center; gap:10px; padding:10px 22px;
+    background: var(--paper-dark);
+    border-bottom:1px solid var(--rule-strong);
+    flex-wrap:wrap;
+    z-index:29;
+  }
+  .toolbar input[type=text], .toolbar select{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    height: var(--control-h);
+    padding:0 10px;
+    border:1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background:var(--card-bg);
+    color:var(--ink);
+  }
+  .toolbar input[type=text]{ width:220px; }
+  .toolbar label.small{
+    font-family:'Inter', sans-serif;
+    font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;
+    display:flex; align-items:center; gap:6px;
+  }
+  .toolbar input[type=range]{ width:110px; accent-color: var(--brass); }
+  /* Admin buttons share the row, so they share its height. Their squared corners
+     are left as-is for now — converting them to pills is a separate decision. */
+  #adminControls button{
+    height: var(--control-h);
+    padding:0 13px;
+    display:inline-flex; align-items:center;
+  }
+
+  button{
+    font-family:'Inter', sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    padding:7px 13px;
+    border-radius: var(--radius);
+    border:1px solid var(--brass-dark);
+    background: var(--brass);
+    color:#fff;
+    cursor:pointer;
+    letter-spacing:.01em;
+  }
+  button:hover{ background: var(--brass-dark); }
+  button.ghost{
+    background: transparent;
+    color: var(--ink);
+    border:1px solid var(--rule-strong);
+  }
+  button.ghost:hover{ background: var(--paper-deep); }
+  /* Sized to match the Focus and Admin pills in the header, so every button and
+     toggle in the interface shares one shape — leaving the squared 3px radius to
+     read as "field" (dropdowns, text inputs). Colors are untouched. */
+  .thread-toggle{
+    font-size:11px;
+    height: var(--control-h);
+    padding:0 14px;
+    border-radius:20px;
+    letter-spacing:.05em;
+    display:inline-flex; align-items:center;
+  }
+  .thread-toggle.on{
+    background: #8c2e22; color:#fff; border-color:#6e2419; font-weight:700;
+  }
+  .thread-toggle.on:hover{ background: #6e2419; }
+  .thread-icon-svg{
+    width:13px; height:13px;
+    vertical-align:-2px;
+    margin-right:4px;
+  }
+  .thread-toggle.on .thread-icon-svg path,
+  .thread-toggle.on .thread-icon-svg rect{
+    fill:#fff;
+  }
+
+  .seg-toggle{
+    display:inline-flex; align-items:stretch;
+    border:1px solid var(--rule-strong); border-radius:20px;
+    overflow:hidden; margin-left:4px;
+    height: var(--control-h);
+  }
+  /* Height comes from the wrapper; the segments stretch to fill it, so they
+     stay aligned with the neighbouring pills regardless of label size. */
+  .seg-btn{
+    font-family:'Inter', sans-serif; font-size:10.5px;
+    height:100%; padding:0 12px; border:none; border-radius:0;
+    background: var(--card-bg); color:var(--ink-soft);
+    display:inline-flex; align-items:center;
+  }
+  .seg-btn + .seg-btn{ border-left:1px solid var(--rule-strong); }
+  .seg-btn.on{ background: var(--brass); color:#fff; font-weight:700; }
+  .seg-btn:hover:not(.on){ background: var(--paper-deep); }
+
+  .retro-mark{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:13px; height:13px; border-radius:50%;
+    background:#8c2e22; color:#fff; font-size:9px; font-weight:700;
+    font-family:'Inter', sans-serif;
+    margin-left:5px; cursor:help; vertical-align:middle;
+  }
+  .retro-note{
+    font-family:'Inter', sans-serif; font-size:11px; color:#8c2e22;
+    display:inline-block; margin-top:2px;
+  }
+  .auto-expand-note{
+    font-family:'Inter', sans-serif; font-size:10.5px; color:#8c2e22;
+    margin:3px 0 2px; font-style:italic;
+  }
+  .notes-details{
+    margin-top:18px;
+    border-top: 1px dashed var(--rule-strong);
+    padding-top:10px;
+  }
+  .notes-details summary{
+    cursor:pointer;
+    list-style:none;
+    font-family:'Inter', sans-serif;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    color: var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    user-select:none;
+  }
+  .notes-details summary::-webkit-details-marker{ display:none; }
+  .notes-details summary::before{
+    content:'\25B8';
+    font-size:9px;
+    color: var(--ink-faint);
+    transition: transform .12s ease;
+    display:inline-block;
+  }
+  .notes-details[open] summary::before{ transform: rotate(90deg); }
+  .notes-details summary:hover{ color: var(--ink); }
+  .notes-details-body{
+    margin-top:8px;
+    padding:8px 10px;
+    background: var(--paper-dark);
+    border-left: 2px dashed var(--rule-strong);
+    font-size:12px;
+    line-height:1.55;
+    color: var(--ink-soft);
+    font-style:italic;
+    white-space:pre-line;
+  }
+  .entry-refid-bar{
+    position:sticky; bottom:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background: linear-gradient(180deg, transparent, var(--paper) 55%);
+    padding:14px 0 0;
+    /* auto, not a fixed value: consumes any leftover vertical space so the bar
+       is pushed to the foot of the panel on short entries. */
+    margin-top:auto;
+    flex:0 0 auto;
+    pointer-events:none;
+  }
+  /* The bar itself stays click-through so it doesn't block content scrolling
+     beneath it; its actual children need clicks back. */
+  .entry-refid-bar > *{ pointer-events:auto; }
+  /* Reference codes stay monospace now that the rest of the interface is Inter.
+     They are identifiers meant to be read aloud, quoted and compared character
+     by character, so they should read as data rather than prose — and crucially
+     a monospace zero is unmistakably a zero rather than a capital O.
+     `slashed-zero` asks the font for its slashed zero variant, which removes any
+     remaining doubt; it degrades harmlessly to the ordinary zero if unavailable.
+     All three rules below style the same kind of code and are kept in sync. */
+  .entry-refid{
+    font-family:'IBM Plex Mono', monospace; font-size:10px;
+    color: var(--ink-faint); letter-spacing:.05em;
+    font-variant-numeric: slashed-zero;
+  }
+
+  /* ---------- Issue reporting ---------- */
+  .report-flag-btn{
+    background:transparent;
+    border:1px solid var(--rule-strong);
+    color: var(--ink-soft);
+    font-family:'Inter', sans-serif;
+    font-size:10.5px;
+    font-weight:500;
+    padding:4px 9px;
+    border-radius:20px;
+    letter-spacing:.04em;
+  }
+  .report-flag-btn:hover{
+    background: var(--paper-deep);
+    color:#8c2e22;
+    border-color:#8c2e22;
+  }
+  .report-context{
+    font-size:12.5px;
+    line-height:1.45;
+    background: var(--paper-dark);
+    border-left:3px solid var(--brass);
+    padding:8px 10px;
+    border-radius:2px;
+    margin-bottom:14px;
+  }
+  .report-context.general{ color: var(--ink-soft); font-style:italic; border-left-color: var(--rule-strong); }
+  .report-context .rc-ref{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--ink-soft);
+    font-variant-numeric: slashed-zero;
+  }
+  .report-note{
+    margin-top:14px;
+    font-size:11.5px;
+    line-height:1.5;
+    color: var(--ink-faint);
+    border-top:1px dashed var(--rule-strong);
+    padding-top:10px;
+  }
+  .form-refid{
+    font-family:'IBM Plex Mono', monospace; font-size:11px;
+    color: var(--ink-faint); font-weight:400; letter-spacing:.03em;
+    font-variant-numeric: slashed-zero;
+  }
+  button.subtle{
+    background:transparent; border:none; color:var(--ink-soft);
+    padding:2px 4px; font-weight:500;
+  }
+  button.subtle:hover{ color:var(--ink); text-decoration:underline; }
+
+  .spacer{ flex:1; }
+
+  .theme-select-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .theme-toggle-chip{
+    font-family:'Inter', sans-serif;
+    font-size:11.5px;
+    padding:5px 10px 5px 8px;
+    border-radius:20px;
+    border:1px solid var(--rule-strong);
+    background: var(--card-bg);
+    color: var(--ink-soft);
+    display:inline-flex; align-items:center; gap:6px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .theme-toggle-chip .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .theme-toggle-chip.selected{
+    background: var(--theme-color, var(--brass));
+    border-color: var(--theme-color, var(--brass));
+    color:#fff;
+    font-weight:600;
+  }
+  .theme-toggle-chip.selected .dot{ background:#fff !important; }
+  .theme-empty-note{ font-size:12px; color:var(--ink-faint); font-style:italic; }
+
+  .theme-tag{
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    padding:3px 9px 3px 7px;
+    border-radius:20px;
+    border:1px solid var(--rule-strong);
+    background: var(--card-bg);
+    display:inline-flex; align-items:center; gap:5px;
+    cursor:pointer;
+  }
+  .theme-tag:hover{ background: var(--paper-deep); }
+  .theme-tag .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  /* ---------- Board ---------- */
+  #main-row{
+    flex:1;
+    display:flex;
+    min-height:0;
+    overflow:hidden;
+  }
+  #board-wrap{
+    flex:1;
+    min-width:0;
+    overflow:auto;
+    position:relative;
+    background: var(--paper);
+    background-image:
+      repeating-linear-gradient(180deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 1px, transparent 1px, transparent 44px);
+  }
+  #board-inner{
+    position:relative;
+    display:flex;
+    min-height:100%;
+  }
+  #rail{
+    position:sticky; left:0; top:0;
+    width:96px; flex:0 0 96px;
+    background: linear-gradient(90deg, var(--paper-dark) 0%, var(--paper-dark) 88%, transparent 100%);
+    z-index:20;
+    border-right:1px solid var(--rule-strong);
+  }
+  .year-mark{
+    position:absolute; left:0; right:0;
+    display:flex; align-items:center; justify-content:flex-end;
+    padding-right:12px;
+    font-family:'Fraunces', serif;
+    /* Fraunces is proportional, so year digits would otherwise sit at slightly
+       different widths down the rail; tabular figures keep them aligned. */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    color: var(--ink-soft);
+    font-size:14px;
+    height:0;
+  }
+  .year-mark.major{ font-weight:600; color:var(--ink); font-size:16px; }
+  .year-mark::after{
+    content:''; position:absolute; right:-1px; top:0;
+    width:6px; height:1px; background:var(--rule-strong);
+  }
+
+  .gridline{
+    position:absolute; left:96px; right:0; height:1px;
+    background: var(--rule);
+    z-index:1;
+  }
+  .gridline.major{ background: var(--rule-strong); height:1px; }
+
+  #thread-svg{
+    position:absolute; top:0; left:0; z-index:15; pointer-events:none;
+  }
+
+  .column{
+    position:relative;
+    flex: 0 0 258px;
+    width:258px;
+    border-right: 1px solid var(--rule);
+    z-index:5;
+  }
+  .column-header{
+    position:sticky; top:0;
+    /* Must outrank entry cards, which the stagger pass assigns z-index 200
+       (up to 1200 when selected/related, and 2000 on hover). At the old value
+       of 22 the cards scrolled up over the top of their own column header. */
+    z-index:3000;
+    background: var(--card-bg);
+    /* The category's colour is carried by this rule rather than by a small
+       swatch beside the title. At 10px a swatch was too small to distinguish
+       between the muted column colours; a full-width band of it is legible at a
+       glance and echoes the 4px colour edge already used on entry cards. */
+    border-bottom: 6px solid var(--cat-color, var(--brass));
+    /* Title and controls sit on one row, both vertically centred, rather than
+       stacked. min-height holds every header to the same size whether its title
+       runs to one line or wraps to two — without it, "Local & Regional Events"
+       would make its column's header taller than its neighbours' and the row of
+       sticky headers would sit ragged. */
+    padding:10px 12px;
+    /* Sized to hold exactly two lines of title, so a column whose name wraps is
+       the same height as one whose name does not and the row of headers stays
+       level. The arithmetic is deterministic because .name pins its own
+       line-height below: 2 lines x 20px + 20px padding + 6px rule = 66px. */
+    min-height:66px;
+    box-shadow: 0 2px 4px rgba(42,36,32,.08);
+    display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .column-header .name{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:16px;
+    /* Explicit rather than inherited: the header's min-height is calculated from
+       this value, so it must not drift with the default the font happens to use. */
+    line-height:1.25;
+    color: var(--ink);
+    display:flex; align-items:center; gap:7px;
+    /* Takes the leftover width and is allowed to shrink, so the controls keep
+       their space even when the admin "+ add" button is present. */
+    flex:1 1 auto; min-width:0;
+  }
+
+  .column-header .name .cat-label{ min-width:0; }
+  /* Rotated ("spine") label. Applied to this real span rather than to a bare
+     text node — an anonymous flex item was part of the original fragility. */
+  .column.collapsed .column-header .name .cat-label{
+    display:block;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    white-space:nowrap;
+    word-break:normal;
+    overflow-wrap:normal;
+    font-size:14px;
+    line-height:1.2;
+    letter-spacing:normal;
+    margin:0 auto;
+  }
+  /* Now a sibling of the title on the same row rather than a row beneath it, so
+     it takes only the width it needs and no top margin. */
+  .column-header .meta-row{
+    display:flex; justify-content:flex-end; align-items:center;
+    margin-top:0;
+    flex:0 0 auto;
+  }
+  .add-in-col{
+    font-family:'Inter', sans-serif;
+    font-size:10.5px;
+  }
+
+  .col-controls{
+    display:flex; align-items:center; gap:5px;
+  }
+  .drag-handle{
+    cursor: grab;
+    color: var(--ink-faint);
+    font-size:13px;
+    line-height:1;
+    padding:2px 3px;
+    user-select:none;
+  }
+  .drag-handle:active{ cursor: grabbing; }
+  .collapse-btn{
+    background:none; border:1px solid var(--rule-strong); color:var(--ink-soft);
+    font-size:11px; line-height:1; padding:3px 6px; border-radius:3px; font-weight:600;
+  }
+  .collapse-btn:hover{ background: var(--paper-deep); color:var(--ink); }
+
+  .column.drag-over{
+    box-shadow: inset 3px 0 0 var(--brass), inset -3px 0 0 var(--brass);
+    background: rgba(168,134,47,0.06);
+  }
+  .column.dragging{ opacity:.45; }
+
+  /* No overflow:hidden here. It made this column the containing block for
+     position:sticky, which broke the header's stickiness — and since the
+     collapsed header is height:100% of a column thousands of pixels tall, the
+     label ended up pinned to the very top of the column and scrolled out of
+     view (the board opens auto-scrolled to 1825). Entry cards are already
+     display:none when collapsed, so there is nothing left to clip. */
+  .column.collapsed{
+    flex: 0 0 40px !important;
+    width:40px !important;
+  }
+  /* Explicitly NOT centred, unlike the expanded header: this box is the full
+     height of the column, so centring would strand the label halfway down it.
+     The label handles its own placement by staying sticky at the top. */
+  .column.collapsed .column-header{
+    padding:10px 6px;
+    height: 100%;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    justify-content:flex-start;
+    cursor:pointer;
+  }
+  /* The collapsed header fills the column's full height, so it has no room to
+     shift and cannot usefully stick on its own. Making the label itself sticky
+     keeps it beside the column at every scroll position.
+     Note the split of responsibilities: this wrapper handles ONLY stickiness
+     and stays untransformed, while the rotation lives on the .cat-label span
+     inside it. A transform here would create a new containing block and
+     interfere with the sticky behaviour. */
+  .column.collapsed .column-header .name{
+    position:sticky;
+    top:12px;
+    display:block;
+    transform:none;
+    gap:0;
+    padding:4px 0 6px;
+    background: var(--card-bg);
+    /* Must not inherit the expanded header's flex:1 1 auto — inside this
+       column-direction, full-height header it would stretch the label to the
+       column's entire height, leaving sticky no room to move and hiding it. */
+    flex:0 0 auto;
+  }
+  /* A collapsed header is the full height of the column, so its bottom rule
+     would fall far below the viewport. The colour moves to the top edge, beside
+     the sticky label, where it stays visible. */
+  .column.collapsed .column-header{
+    border-bottom:none;
+    border-top: 6px solid var(--cat-color, var(--brass));
+  }
+  .column.collapsed .column-header .meta-row,
+  .column.collapsed .add-in-col{ display:none; }
+  .column.collapsed .drag-handle{ display:none; }
+  .column.collapsed .entry-card{ display:none; }
+  .column.collapsed .empty-col-msg{ display:none; }
+
+  .entry-card{
+    position:absolute;
+    left:10px; right:10px;
+    background: var(--card-bg);
+    border-left: 4px solid var(--cat-color, var(--brass));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding:7px 9px 7px 9px;
+    cursor:pointer;
+    transition: transform .1s ease, box-shadow .1s ease, opacity .15s;
+    min-height:38px;
+  }
+  .entry-card:hover{ transform: translateY(-1px); box-shadow: 0 3px 10px rgba(42,36,32,.22); z-index: 2000 !important; }
+  .entry-card .date-line{
+    font-family:'Inter', sans-serif;
+    font-size:10px;
+    color: var(--ink-soft);
+    letter-spacing:.02em;
+  }
+  .entry-card .title-line{
+    font-size:12.5px;
+    line-height:1.25;
+    font-weight:600;
+    color:var(--ink);
+    margin-top:1px;
+  }
+  .entry-card.dimmed{ opacity:.22; }
+  .entry-card.selected{
+    outline: 2px solid var(--brass);
+    outline-offset:1px;
+    box-shadow: 0 4px 14px rgba(168,134,47,.4);
+  }
+  .entry-card.related{
+    box-shadow: 0 0 0 2px rgba(168,134,47,.55), var(--shadow);
+  }
+
+  .empty-col-msg{
+    position:absolute; top:14px; left:12px; right:12px;
+    font-size:11.5px; color:var(--ink-faint); font-style:italic;
+  }
+
+  /* ---------- Detail / edit panel ---------- */
+  .overlay{
+    position:fixed; inset:0; background: rgba(20,16,12,.45);
+    display:flex; align-items:flex-start; justify-content:flex-end;
+    z-index:100;
+  }
+  .overlay.center{ align-items:center; justify-content:center; }
+  .panel{
+    background: var(--paper);
+    width: 420px; max-width:92vw;
+    height:100%;
+    overflow-y:auto;
+    box-shadow: -6px 0 24px rgba(0,0,0,.3);
+    border-left:3px double var(--brass);
+    padding: 22px 24px 30px;
+  }
+  /* The sliding detail panel only — the centred modals keep normal block flow.
+     Flex column plus margin-top:auto on the footer bar drops the Report button
+     and reference ID to the very bottom when an entry's content is short, while
+     the bar's existing position:sticky keeps them in view on longer entries. */
+  .panel:not(.modal){
+    display:flex;
+    flex-direction:column;
+    padding-bottom:14px;
+  }
+  .panel.modal{
+    height:auto; max-height:88vh;
+    border-left:none;
+    border-radius:4px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    border: 1px solid var(--rule-strong);
+  }
+  .panel h2{ font-size:20px; margin:0 0 2px; }
+  .panel .cat-tag{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'Inter', sans-serif; font-size:11px;
+    color: var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;
+    margin-bottom:10px;
+  }
+
+  /* Title block — a colored label at the head of the record, carrying the
+     category's own color. Negative margins pull it flush to the panel's edges,
+     cancelling the panel's padding, so it reads as a band rather than a box
+     floating inside one. Both colors arrive as inline custom properties set per
+     entry: --cat-color from the category, --titleblock-fg chosen against it. */
+  .panel-titleblock{
+    background: var(--cat-color, var(--ink));
+    color: var(--titleblock-fg, #F3ECDA);
+    margin:-22px -24px 18px;
+    padding:20px 24px 17px;
+    flex:0 0 auto;
+  }
+  .panel-titleblock h2{
+    color: inherit;
+    margin:0;
+    line-height:1.25;
+  }
+  .panel-titleblock .cat-tag{
+    color: inherit;
+    opacity:.8;
+    margin-bottom:5px;
+  }
+  .panel .field{ margin-bottom:14px; }
+  .panel .field label{
+    display:block; font-family:'Inter', sans-serif; font-size:10.5px;
+    text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:5px;
+  }
+  /* Reading panel only. The modal forms reuse .field, and opening these up there
+     would make an already long entry form considerably taller. */
+  .panel:not(.modal) .field{ margin-bottom:24px; }
+  .panel:not(.modal) .field label{ margin-bottom:7px; }
+  .panel .field .val{ font-size:14px; line-height:1.5; }
+  .source-link{
+    font-family:'Inter', sans-serif;
+    font-size:11.5px;
+    color: var(--brass-dark);
+    text-decoration:none;
+    white-space:nowrap;
+    border-bottom:1px dotted var(--brass-dark);
+  }
+  .source-link:hover{ color: var(--brass); border-bottom-style:solid; }
+  .sources-list{ display:flex; flex-direction:column; gap:8px; }
+  .source-item{ font-size:14px; line-height:1.45; }
+  .source-row{
+    display:flex; gap:6px; margin-bottom:7px;
+  }
+  .source-row .src-text{ flex:1.2; }
+  .source-row .src-url{ flex:1; }
+  .source-row .remove-source-row{
+    flex:0 0 auto; font-size:16px; padding:4px 9px; color:var(--ink-soft);
+    border:1px solid var(--rule-strong); border-radius:var(--radius);
+  }
+  .source-row .remove-source-row:hover{ color:#a33; border-color:#a33; }
+
+  .tag-input{
+    border:1px solid var(--rule-strong); border-radius:var(--radius);
+    background:var(--card-bg); padding:6px 7px; position:relative;
+  }
+  .tag-input:focus-within{ border-color: var(--brass); }
+  .tag-chips{
+    display:flex; flex-wrap:wrap; gap:5px;
+  }
+  .tag-chips:not(:empty){ margin-bottom:5px; }
+  .tag-chip{
+    background: var(--paper-deep); border:1px solid var(--rule-strong);
+    border-radius:20px; padding:3px 5px 3px 10px;
+    font-size:12px; font-family:'Inter', sans-serif;
+    display:inline-flex; align-items:center; gap:5px;
+  }
+  .tag-chip-remove{
+    background:none; border:none; color:var(--ink-soft);
+    cursor:pointer; font-size:14px; line-height:1; padding:0 3px;
+  }
+  .tag-chip-remove:hover{ color:#a33; }
+  #peopleTextInput{
+    border:none; outline:none; background:transparent;
+    font-family:'Inter', sans-serif; font-size:13.5px;
+    width:100%; padding:3px 2px;
+  }
+  .tag-suggestions{
+    position:absolute; left:0; right:0; top:100%; margin-top:3px;
+    background:var(--card-bg); border:1px solid var(--rule-strong);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    z-index:60; max-height:160px; overflow-y:auto;
+  }
+  .tag-suggestion{ padding:7px 10px; font-size:13px; cursor:pointer; }
+  .tag-suggestion:hover{ background: var(--paper-deep); }
+  .panel .field textarea, .panel .field input, .panel .field select{
+    width:100%; font-family:'Inter',sans-serif; font-size:13.5px;
+    padding:8px 9px; border:1px solid var(--rule-strong); border-radius:var(--radius);
+    background:var(--card-bg); color:var(--ink);
+  }
+  .panel .field textarea{ min-height:80px; resize:vertical; }
+  /* Explanatory sentence under a field label. Labels are uppercase and
+     letterspaced, which is unreadable for anything longer than a few words, so
+     guidance goes here in ordinary sentence case instead. */
+  .panel .field-hint{
+    font-size:12px;
+    line-height:1.5;
+    color: var(--ink-soft);
+    margin:0 0 7px;
+  }
+  .panel .field-hint .eg{ color: var(--ink-faint); font-style:italic; }
+  /* Divides the record itself (dates, notes, sources, people, themes) from the
+     "Nearby in time" navigation below it. Matches the dashed rule already used
+     above Additional Notes. */
+  .panel-rule{
+    border:none;
+    border-top:1px dashed var(--rule-strong);
+    margin:20px 0 16px;
+  }
+  .row3{ display:flex; gap:8px; }
+  .row3 > div{ flex:1; }
+  .people-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .people-tags .ptag{
+    background: var(--paper-deep); border:1px solid var(--rule-strong);
+    font-family:'Inter', sans-serif; font-size:11px; padding:3px 8px; border-radius:20px;
+    cursor:pointer;
+  }
+  .panel .actions{ display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
+  .panel .close-x{
+    position:absolute; top:16px; right:18px; background:none; border:none;
+    color:var(--ink-soft); font-size:20px; cursor:pointer; padding:2px 8px;
+  }
+  .panel .close-x:hover{ color:var(--ink); }
+  /* Sits on top of the colored title block in the detail panel, so it takes the
+     block's foreground color rather than the panel's ink. */
+  .panel:not(.modal) .close-x{ color: var(--titleblock-fg, #F3ECDA); opacity:.75; }
+  .panel:not(.modal) .close-x:hover{ color: var(--titleblock-fg, #F3ECDA); opacity:1; }
+  .panel-relative{ position:relative; }
+
+  .related-list{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+  .nearby-controls{
+    display:flex; align-items:center; gap:9px;
+    margin: 6px 0 10px;
+  }
+  .nearby-controls input[type=range]{
+    flex:1; accent-color: var(--brass);
+  }
+  .nearby-controls input[type=number]{
+    width:48px; text-align:center; padding:5px 4px;
+    font-family:'Inter', sans-serif; font-size:12.5px;
+  }
+  .nearby-controls .nearby-unit{
+    font-family:'Inter', sans-serif; font-size:11px; color:var(--ink-soft);
+  }
+  .related-item{
+    border:1px solid var(--rule-strong); border-left:4px solid var(--cat-color);
+    background:var(--card-bg); border-radius:var(--radius); padding:6px 9px; cursor:pointer;
+  }
+  .related-item:hover{ background:var(--paper-deep); }
+  .related-item .rd{ font-family:'Inter', sans-serif; font-size:10px; color:var(--ink-soft); }
+  .related-item .rt{ font-size:12px; font-weight:600; }
+
+  .cat-manage-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:8px;
+    border:1px solid var(--rule-strong); border-radius:var(--radius); padding:7px 9px; background:var(--card-bg);
+  }
+  .cat-manage-row input[type=text]{ flex:1; border:none; background:transparent; font-size:13px; padding:2px; }
+  .cat-manage-row input[type=color]{ width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; }
+
+  .empty-state{
+    text-align:center; padding: 60px 30px; color:var(--ink-soft);
+  }
+  .empty-state h2{ color:var(--ink); }
+
+  ::-webkit-scrollbar{ width:11px; height:11px; }
+  ::-webkit-scrollbar-track{ background: var(--paper-dark); }
+  ::-webkit-scrollbar-thumb{ background: var(--rule-strong); border-radius:6px; border:2px solid var(--paper-dark); }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--brass); }
+
+  footer.hint{
+    font-family:'Inter', sans-serif;
+    font-size:10.5px; color: var(--ink-faint);
+    padding: 6px 22px; background: var(--paper-dark); border-top:1px solid var(--rule);
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+  }
+  footer.hint #hintFooterText{ min-width:0; }
+
+  a{ color: var(--brass-dark); }
+
+  /* ---------- Focus panel ---------- */
+
+  .focus-toggle-btn{
+    background:#fff;
+    border:none;
+    color: var(--ink);
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    height: var(--control-h);
+    padding:0 14px;
+    border-radius:20px;
+    cursor:pointer;
+    letter-spacing:.05em;
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  /* The manicule is set larger than the label and in brass, so it reads as a
+     mark rather than a character sitting in the text. Line-height is pinned to 1
+     so the taller glyph doesn't stretch the button. */
+  /* Size and resting colour are shared with the detail panel's Add to Focus
+     button so the two glyphs stay identical. Their state colours differ — the
+     header pill sits on dark blue, the panel one on cream paper — so those are
+     defined separately with each button. */
+  .focus-toggle-btn .fi-hand,
+  .focus-pin-action .fi-hand{
+    font-size:19px;
+    line-height:1;
+    color: var(--brass);
+  }
+  .focus-toggle-btn:hover{ background: var(--paper); }
+  .focus-toggle-btn.on{
+    background: var(--brass); color:#2A2420; font-weight:700;
+  }
+  .focus-toggle-btn.on .fi-hand{ color:#2A2420; }
+  .focus-toggle-btn.on:hover{ background: var(--brass-dark); color:#F3E9D0; }
+  .focus-toggle-btn.on:hover .fi-hand{ color:#F3E9D0; }
+
+  /* Carries the same Prussian blue as the page header, with the same brass
+     double rule, so the workspace reads as chrome belonging to the application
+     rather than a separate teal-themed area. The cream/brass text family is the
+     header's as well. */
+  .focus-panel{
+    width:0;
+    flex:0 0 auto;
+    overflow:hidden;
+    background: linear-gradient(180deg, var(--header-top) 0%, var(--header-bottom) 100%);
+    border-left: 3px double var(--brass);
+    transition: width .22s ease;
+  }
+  .focus-panel.open{ width:340px; }
+  .focus-panel.drag-over{ background: linear-gradient(180deg, #1d3f63 0%, #264d75 100%); }
+  .focus-panel-inner{
+    width:340px;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    padding:16px 16px 14px;
+    overflow-y:auto;
+    color:#EFE6D2;
+  }
+  /* Separator beneath the title, matching the rule above the actions at the
+     foot of the panel — both are the same cream hairline at low opacity. */
+  .focus-header-row{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:12px;
+    padding-bottom:10px;
+    border-bottom:1px solid rgba(243,233,208,0.22);
+  }
+  .focus-header-row h3{
+    font-family:'Fraunces', serif; font-size:19px; font-weight:600;
+    color:#F3E9D0; margin:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  /* Scales with the heading and picks up brass, matching the Focus pill in the
+     page header. */
+  .focus-header-row h3 .fi-hand{
+    font-size:23px;
+    line-height:1;
+    color: var(--brass);
+  }
+  .focus-close-x{
+    background:none; border:none; color:#c9b98d; font-size:19px; cursor:pointer; padding:0 4px;
+  }
+  .focus-close-x:hover{ color:#F3E9D0; }
+  .focus-sub{
+    font-family:'Inter', sans-serif; font-size:10.5px; color:#c9b98d;
+    text-transform:uppercase; letter-spacing:.07em; margin:10px 0 5px;
+  }
+  .focus-title-input, .focus-notes-textarea{
+    width:100%; font-family:'Inter', sans-serif; font-size:13px;
+    background: rgba(255,255,255,0.07); border:1px solid rgba(243,233,208,0.25); border-radius:3px;
+    color:#F3E9D0; padding:7px 9px;
+  }
+  .focus-title-input::placeholder, .focus-notes-textarea::placeholder{ color: rgba(239,230,210,0.45); }
+  .focus-notes-textarea{ min-height:64px; resize:vertical; font-size:12.5px; line-height:1.45; }
+  .focus-title-input:focus, .focus-notes-textarea:focus{ outline:1px solid var(--brass); }
+
+  .focus-list{
+    display:flex; flex-direction:column; gap:7px;
+    margin:8px 0 4px;
+    flex:1;
+  }
+  .focus-empty{
+    font-family:'Inter', sans-serif; font-size:11.5px; color: rgba(239,230,210,0.6);
+    font-style:italic; padding:10px 2px; line-height:1.5;
+  }
+  /* Pinned entries are drawn as the entry cards they represent: same cream card
+     stock, same 4px category-coloured edge, same date/title type. Sitting on the
+     dark panel they read as cards lifted straight off the board. */
+  .focus-item{
+    background: var(--card-bg);
+    border-left:4px solid var(--cat-color, var(--brass));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding:7px 9px;
+    cursor:pointer;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:6px;
+  }
+  .focus-item:hover{ box-shadow: 0 3px 10px rgba(0,0,0,.3); transform: translateY(-1px); }
+  .focus-item .fi-text{ min-width:0; }
+  .focus-item .fi-date{
+    font-family:'Inter', sans-serif; font-size:10px;
+    color: var(--ink-soft); letter-spacing:.02em;
+  }
+  .focus-item .fi-title{
+    font-size:12.5px; font-weight:600; color: var(--ink);
+    line-height:1.25; margin-top:1px;
+  }
+  .focus-item .fi-remove{
+    flex:0 0 auto; background:none; border:none; color: var(--ink-faint);
+    font-size:15px; cursor:pointer; padding:0 2px; line-height:1;
+  }
+  .focus-item .fi-remove:hover{ color:#8c2e22; }
+
+  .focus-actions{
+    display:flex; flex-direction:column; gap:7px; margin-top:12px;
+    padding-top:12px; border-top:1px solid rgba(243,233,208,0.22);
+  }
+  .focus-actions button{
+    font-family:'Inter', sans-serif; font-size:11px;
+    background: rgba(255,255,255,0.07); border:1px solid rgba(243,233,208,0.25); color:#EFE6D2;
+    padding:8px 10px; border-radius:3px; cursor:pointer; text-align:left;
+  }
+  .focus-actions button:hover{ background: rgba(255,255,255,0.14); }
+  .focus-actions button.danger:hover{ background: rgba(140,46,34,0.35); color:#f0c9c2; border-color:#8c2e22; }
+
+  .pin-btn{
+    position:absolute; top:5px; right:6px;
+    width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(63,138,153,0.85); color:#fff;
+    font-size:10px; line-height:1; border:none; cursor:pointer;
+    opacity:0; transition: opacity .12s;
+  }
+  .entry-card:hover .pin-btn{ opacity:0.9; }
+  .pin-btn:hover{ opacity:1 !important; background:#3f8a99; }
+  .pin-btn.pinned{ opacity:0.9; background:#c9a227; }
+  .pin-btn.pinned:hover{ background:#a8862f; }
+  .entry-card.in-focus{ box-shadow: 0 0 0 2px #3f8a99, var(--shadow); }
+
+  /* Sibling of the header's Focus toggle: same pill shape, height, icon size and
+     brass-fill active state. It carries a hairline border the header button does
+     not, because it sits on cream paper rather than dark blue — a borderless
+     white pill would have no edge to read against. The !important flags override
+     button.ghost, which is more specific than this class alone. */
+  /* Four states, all kept above AA contrast:
+       default          transparent, so it sits quietly on the panel
+       hover            brass-dark fill, cream text     4.73:1
+       pinned           brass-dark fill, cream text     4.73:1
+       pinned + hover   lighter brass fill, ink text    4.46:1
+     The two filled tones are deliberate rather than decorative: cream needs the
+     darker brass to stay legible and ink needs the lighter one, so hovering a
+     pinned button lightens the fill as its text darkens. Filling on hover also
+     previews what pinning will look like. The !important flags override
+     button.ghost, which is more specific than this class on its own. */
+  .focus-pin-action{
+    background: transparent !important;
+    color: var(--ink) !important;
+    border:1px solid var(--rule-strong) !important;
+    height: var(--control-h);
+    padding:0 14px;
+    border-radius:20px;
+    font-size:11px;
+    letter-spacing:.05em;
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  .focus-pin-action:hover{
+    background: var(--brass-dark) !important;
+    color:#F3E9D0 !important;
+    border-color: var(--brass-dark) !important;
+  }
+  .focus-pin-action.pinned{
+    background: var(--brass-dark) !important;
+    color:#F3E9D0 !important;
+    border-color: var(--brass-dark) !important;
+    font-weight:700;
+  }
+  .focus-pin-action.pinned:hover{
+    background: var(--brass) !important;
+    color:#2A2420 !important;
+    border-color: var(--brass) !important;
+  }
+  /* Icon follows the label through all four states. Ordered so the more
+     specific .pinned:hover rule lands last and wins. */
+  .focus-pin-action:hover .fi-hand{ color:#F3E9D0; }
+  .focus-pin-action.pinned .fi-hand{ color:#F3E9D0; }
+  .focus-pin-action.pinned:hover .fi-hand{ color:#2A2420; }
+
+  @media (max-width: 720px){
+    .panel{ width:100%; }
+    .toolbar input[type=text]{ width:150px; }
+    .focus-panel.open{ width:78vw; }
+    .focus-panel-inner{ width:78vw; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1>Joseph Smith MultiTimeline</h1>
+    <div class="subtitle">A Research Board for the Life of Joseph Smith</div>
+    <div class="header-spacer"></div>
+    <button id="focusToggleBtn" class="focus-toggle-btn" title="Open your Focus workspace — pin entries to build your own thread or theory"><span class="fi-hand">&#9758;</span><span>Focus</span></button>
+  </header>
+
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search titles, notes, people…">
+    <select id="personFilter"><option value="">All people</option></select>
+    <select id="themeFilter"><option value="">All themes</option></select>
+    <label class="small">Zoom <input type="range" id="zoomSlider" min="30" max="200" value="80"></label>
+    <button class="ghost thread-toggle" id="threadToggleBtn" title="Draw one line through every visible entry, in chronological order"><svg class="thread-icon-svg" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><title xmlns="">thread-roll-filled</title><path fill="#8c2e22" d="M6 12.59L11.59 7H6zm12-1.18L12.41 17H18zM18 7h-3.59L6 15.41V17h3.59L18 8.59z"/><rect width="16" height="3" x="4" y="2" fill="#8c2e22" rx=".75" ry=".75"/><rect width="16" height="3" x="4" y="19" fill="#8c2e22" rx=".75" ry=".75"/></svg> Thread: Off</button>
+    <label class="small" style="gap:8px;">Position by
+      <div class="seg-toggle" id="positionToggle">
+        <button type="button" class="seg-btn on" data-mode="event">Event date</button>
+        <button type="button" class="seg-btn" data-mode="recorded">First recorded</button>
+      </div>
+    </label>
+    <div class="spacer"></div>
+    <div id="adminControls" style="display:none; gap:8px; align-items:center;">
+      <button class="ghost" id="manageCatsBtn">Manage categories</button>
+      <button class="ghost" id="manageThemesBtn">Manage themes</button>
+      <button class="ghost" id="exportBtn">Export JSON</button>
+      <button class="ghost" id="importBtn">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <button id="addEntryBtn">+ Add entry</button>
+    </div>
+  </div>
+
+  <div id="main-row">
+    <div id="board-wrap">
+      <div id="board-inner">
+        <div id="rail"></div>
+        <!-- columns injected here -->
+      </div>
+    </div>
+
+    <div id="focusPanel" class="focus-panel">
+      <div class="focus-panel-inner" id="focusPanelInner"></div>
+    </div>
+  </div>
+
+  <footer class="hint" id="hintFooter">
+    <span id="hintFooterText">Click any entry for details and nearby events. Browsing is open to everyone — unlock Admin below to add, edit, or reorganize.</span>
+    <span class="footer-actions">
+      <button type="button" class="report-flag-btn" id="reportGeneralBtn" title="Report a problem or suggest a correction">&#9873; Report an issue</button>
+      <button id="adminToggleBtn" class="admin-toggle">&#9919; Admin</button>
+    </span>
+  </footer>
+</div>
+
+<script>
+(function(){
+
+  /* ============================= DATA MODEL ============================= */
+
+  var DEFAULT_PALETTE = ['#7A4B3A','#3F5A6B','#8B6F1F','#4A5940','#5C4A5C','#6E5B3E','#3A5A4A','#7A3F4A','#4A4A6E','#7A6A3A'];
+
+  var DEFAULT_CATEGORIES = [
+    {id:'personal', name:'Personal Life', color:'#8B4A3A'},
+    {id:'acquaint', name:'Acquaintances', color:'#3F5A6B'},
+    {id:'revelations', name:'Revelations & Scripture', color:'#8B6F1F'},
+    {id:'church', name:'Church History', color:'#4A5940'},
+    {id:'local', name:'Local & Regional Events', color:'#5C4A5C'}
+  ];
+
+  // Curated thematic tags — a cross-cutting lens independent of category.
+  // Unlike categories (which a column belongs to, exclusively), an entry can
+  // carry any number of these at once. Seeded with a few starter themes;
+  // meant to be managed via "Manage themes" and assigned deliberately, not
+  // auto-applied.
+  var DEFAULT_THEMES = [
+    {id:'conflict', name:'Conflict', color:'#8c2e22'},
+    {id:'theological-shift', name:'Theological Shift', color:'#8B6F1F'},
+    {id:'membership-growth', name:'Membership Growth', color:'#4A5940'},
+    {id:'migration-relocation', name:'Migration & Relocation', color:'#4A4A6E'},
+    {id:'persecution-violence', name:'Persecution & Mob Violence', color:'#7A3F4A'},
+    {id:'plural-marriage', name:'Plural Marriage', color:'#6E5B3E'}
+  ];
+
+  // Seed data. Dates are approximate scholarly consensus points for a research starting scaffold —
+  // meant to be corrected, sourced, and expanded as research deepens.
+  var DEFAULT_ENTRIES = [
+    // ---- Personal Life ----
+    {cat:'personal', y:1805, m:12, d:23, title:'Born in Sharon, Vermont', people:['Joseph Smith','Lucy Mack Smith'], desc:'Joseph Smith Jr. is born to Joseph Smith Sr. and Lucy Mack Smith.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 1 (states he was born "in the town of Sharon, Windsor County, State of Vermont")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
+      {text:'Lucy Mack Smith, History, 1844–1845 (his mother\'s firsthand family memoir, dictated ~1844–45)', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'}
+    ]},
+    {cat:'personal', y:1816, approx:true, title:'Family relocates to western New York', people:['Lucy Mack Smith'], desc:'After crop failures (the "Year Without a Summer") and debt, the Smith family moves to the Palmyra/Manchester area.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 1 (recounts the move "when I was in my tenth year")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
+      {text:'Lucy Mack Smith, History, 1844–1845', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'}
+    ]},
+    {cat:'personal', y:1820, m:3, approx:true, recordedY:1832, recordedApprox:true, title:'First Vision, Sacred Grove', people:['Joseph Smith'], desc:'Reports a theophany in the woods near the family farm while seeking which church to join. The earliest known written account is in his own hand from 1832; further, somewhat differing accounts followed in 1835, 1838, and 1842.', sources:[
+      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving account, in his own handwriting', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 2–3 (the canonical account, later published as Joseph Smith—History 1:14–20)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/2'}
+    ]},
+    {cat:'personal', y:1823, m:9, d:21, title:'First visit from the angel Moroni', people:['Joseph Smith'], desc:'Reports repeated nighttime visits from a heavenly messenger describing buried gold plates.', sources:[
+      {text:'Oliver Cowdery, "Letter IV," Messenger and Advocate, Feb. 1835 (written with JS\'s direction/approval, later copied into JS\'s own journal-history)', url:'https://www.josephsmithpapers.org/paper-summary/history-1834-1836/69'},
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 4–5 (later published as Joseph Smith—History 1:27–54)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/4'}
+    ]},
+    {cat:'personal', y:1825, approx:true, title:'Hired by Josiah Stowell', people:['Josiah Stowell'], desc:'Works in Pennsylvania for Stowell, participating in local treasure-seeking ventures.', sources:[
+      {text:'"State of New York v. JS–A," Chenango Co. Justice of the Peace Court, 20 Mar. 1826 — the only two surviving contemporary documents are the fee bills of Justice Albert Neely and Constable Philip De Zeng', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-state-of-new-york-v-js-a/1'}
+    ], researchNotes:'No trial transcript survives. The two contemporary documents are the fee bills of Justice Albert Neely and Constable Philip De Zeng. Other accounts of what was said at the proceeding were published later: a letter from Abram W. Benton in 1831, and an account by W. D. Purple in 1877. The two later accounts do not agree with each other on details.'},
+    {cat:'personal', y:1827, m:1, d:18, title:'Marries Emma Hale', people:['Emma Hale Smith'], desc:'Marries Emma Hale in South Bainbridge, New York, against her father\'s wishes.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 8 ("On the eighteenth of January...we were married")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/8'}
+    ]},
+    {cat:'personal', y:1827, m:9, d:22, title:'Receives the plates from Moroni', people:['Joseph Smith'], desc:'Reports finally receiving the gold plates at the Hill Cumorah.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (later published as Joseph Smith—History 1:59)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
+    ]},
+    {cat:'personal', y:1828, m:6, approx:true, title:'Birth and death of son Alvin', people:['Emma Hale Smith'], desc:'First child dies shortly after birth.', sources:[
+      {text:'Lucy Mack Smith, History, 1844–1845, bk. 10 — writes that the baby "was very soon snatched from her arms and borne aloft to the world of spirits"', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'},
+      {text:'Sophia Lewis, Statement, in "Mormonism," Susquehanna Register, and Northern Pennsylvanian, 1 May 1834', url:'https://www.josephsmithpapers.org/paper-summary/revelation-july-1828-dc-3/1'}
+    ], researchNotes:'Lucy Mack Smith was not present at the birth; she wrote this account roughly 16 years later, as Joseph Smith\'s mother. Sophia Lewis published her statement in 1834, about 6 years after the event; she was not a supporter of the Smith family, and her claim to have been present is not corroborated elsewhere.'},
+    {cat:'personal', y:1831, m:2, approx:true, title:'Relocates to Kirtland, Ohio', people:['Emma Hale Smith'], desc:'Moves the family household to the growing gathering place in Kirtland.', sources:[
+      {text:'Revelation, 30 December 1830 [D&C 37] — dictated near Fayette, NY, formally directing the move to Ohio', url:'https://www.josephsmithpapers.org/paper-summary/revelation-30-december-1830-dc-37/1'}
+    ]},
+    {cat:'personal', y:1832, m:3, d:24, title:'Tarred and feathered in Hiram, Ohio', people:['Sidney Rigdon'], desc:'A mob drags him from his home at night and beats, tars, and feathers him.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (his own detailed account of the mobbing and the sermon he preached the next morning)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
+    ]},
+    {cat:'personal', y:1838, m:3, approx:true, title:'Family moves to Far West, Missouri', people:['Emma Hale Smith'], desc:'Relocates amid rising tension between Missouri settlers and church members.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. B-1 [1 Sept. 1834–2 Nov. 1838] — his own manuscript history covering this period', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'}
+    ]},
+    {cat:'personal', y:1838, m:12, approx:true, title:'Imprisoned in Liberty Jail', people:['Hyrum Smith'], desc:'Held through the winter of 1838–39 on charges stemming from the Missouri conflict.', sources:[
+      {text:'Joseph Smith et al., Letter to the Church and Edward Partridge, 20 March 1839 — written from inside Liberty Jail; excerpts later canonized as D&C 121–123', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-and-edward-partridge-20-march-1839/1'}
+    ]},
+    {cat:'personal', y:1839, m:5, approx:true, title:'Family settles in Commerce (Nauvoo), Illinois', people:['Emma Hale Smith'], desc:'After escaping Missouri custody, resettles the family on the Mississippi River bend.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. C-1 [2 Nov. 1838–31 July 1842] — his own manuscript history covering the Commerce/Nauvoo settlement', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-c-1-2-november-1838-31-july-1842/1'}
+    ]},
+    {cat:'personal', y:1843, approx:true, title:'Plural marriage discussed within inner circle', people:['Emma Hale Smith'], desc:'Practice of plural marriage becomes a source of private tension, including with Emma.', sources:[
+      {text:'Revelation, 12 July 1843 [D&C 132] — JSP\'s annotation, drawing on William Clayton\'s journal and 1874 affidavit, describes the private conversation between JS, Hyrum, and Clayton immediately before the revelation was dictated', url:'https://www.josephsmithpapers.org/paper-summary/revelation-12-july-1843-dc-132/1'}
+    ]},
+    {cat:'personal', y:1844, m:6, d:27, title:'Killed at Carthage Jail', people:['Hyrum Smith'], desc:'Shot and killed by an armed mob while awaiting trial in Carthage, Illinois.', sources:[
+      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — written by an eyewitness who was in the room; also published as "Two Minutes in Jail," Times and Seasons, 1 Aug. 1844', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844/19'}
+    ]},
+
+    // ---- Acquaintances ----
+    {cat:'acquaint', y:1825, approx:true, title:'Meets Josiah Stowell', people:['Josiah Stowell'], desc:'Employer during the Pennsylvania treasure-seeking period; later a defense witness.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (his own account of being hired by Stowell)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
+      {text:'"State of New York v. JS–A," 20 Mar. 1826 — Stowell testified in JS\'s defense at this hearing', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-state-of-new-york-v-js-a/1'}
+    ]},
+    {cat:'acquaint', y:1827, m:4, approx:true, title:'Martin Harris becomes early supporter', people:['Martin Harris'], desc:'A prosperous Palmyra farmer who becomes an early believer and financial backer.', sources:[
+      {text:'"Testimony of Three Witnesses," late June 1829 — Harris\'s own signed statement affirming what he had seen', url:'https://www.josephsmithpapers.org/paper-summary/appendix-4-testimony-of-three-witnesses-late-june-1829/1'}
+    ], researchNotes:'This source is dated June 1829, later than the April 1827 date used above. It is the earliest dated primary record of Harris\'s public role as a witness. No primary source documenting his private support before 1829 has been identified so far.'},
+    {cat:'acquaint', y:1829, m:4, d:7, title:'Oliver Cowdery arrives as scribe', people:['Oliver Cowdery'], desc:'A schoolteacher who becomes primary scribe for the Book of Mormon translation.', sources:[
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (his own account of Cowdery\'s arrival and start as scribe)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
+    ]},
+    {cat:'acquaint', y:1829, m:6, approx:true, title:'David Whitmer family hosts translation', people:['David Whitmer'], desc:'The Whitmer farm in Fayette becomes the site where translation is completed.', sources:[
+      {text:'"Testimony of Three Witnesses," late June 1829 — signed at the Whitmer farm in Fayette, where the translation was completed', url:'https://www.josephsmithpapers.org/paper-summary/appendix-4-testimony-of-three-witnesses-late-june-1829/1'}
+    ]},
+    {cat:'acquaint', y:1830, m:11, approx:true, title:'Sidney Rigdon converts', people:['Sidney Rigdon'], desc:'An influential Campbellite preacher in Ohio who converts and becomes a key counselor.', sources:[
+      {text:'Revelation, 7 December 1830 [D&C 35] — dictated for Rigdon shortly after his arrival in New York, days after his conversion', url:'https://www.josephsmithpapers.org/paper-summary/revelation-7-december-1830-dc-35/1'}
+    ]},
+    {cat:'acquaint', y:1832, m:4, approx:true, title:'Brigham Young joins the church', people:['Brigham Young'], desc:'A Mendon, New York carpenter who is baptized and later leads the Quorum of the Twelve.', sources:[
+      {text:'Brigham Young\'s own 1832 journal entry, as cited in his Joseph Smith Papers biography ("Young, Journal, 9 Apr. 1832")', url:'https://www.josephsmithpapers.org/person/brigham-young'}
+    ]},
+    {cat:'acquaint', y:1837, approx:true, title:'Falling-out after Kirtland Bank failure', people:['Oliver Cowdery','David Whitmer'], desc:'Several early associates, including Cowdery and Whitmer, distance themselves amid the financial collapse.', sources:[
+      {text:'Introduction to the Kirtland Safety Society — JSP\'s documentary account of the bank\'s rise and 1837 failure', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'},
+      {text:'Articles of Agreement for the Kirtland Safety Society Anti-Banking Company, 2 January 1837 — the institution\'s founding document', url:'https://www.josephsmithpapers.org/paper-summary/articles-of-agreement-for-the-kirtland-safety-society-anti-banking-company-2-january-1837/3'}
+    ]},
+    {cat:'acquaint', y:1838, m:4, approx:true, title:'Cowdery and Whitmer leave the church', people:['Oliver Cowdery','David Whitmer'], desc:'Formal separations follow disputes over finances, land, and church discipline in Missouri.', sources:[
+      {text:'Minutes, 12 April 1838 — the Far West high council\'s record of Cowdery\'s excommunication trial', url:'https://www.josephsmithpapers.org/paper-summary/minutes-12-april-1838/1'},
+      {text:'Minutes, 13 April 1838 — the Far West high council\'s record of Whitmer\'s excommunication trial, held the next day', url:'https://www.josephsmithpapers.org/paper-summary/minutes-13-april-1838/1'}
+    ]},
+    {cat:'acquaint', y:1840, approx:true, title:'John C. Bennett joins inner circle', people:['John C. Bennett'], desc:'A physician and organizer who becomes Nauvoo\'s first mayor and a close associate.', sources:[
+      {text:'John Cook Bennett, Joseph Smith Papers biography — documents his 1840 arrival, baptism, and rapid rise in Nauvoo', url:'https://www.josephsmithpapers.org/person/john-cook-bennett'}
+    ]},
+    {cat:'acquaint', y:1842, m:5, approx:true, title:'Break with John C. Bennett', people:['John C. Bennett'], desc:'Bennett is expelled amid scandal and becomes a public critic.', sources:[
+      {text:'The Joseph Smith Papers, Documents, Volume 10: May–August 1842 — introduction covering Bennett\'s May 1842 excommunication and departure', url:'https://www.josephsmithpapers.org/articles/documents-volume-10-may-august-1842'}
+    ]},
+    {cat:'acquaint', y:1844, m:5, approx:true, title:'William Law breaks away', people:['William Law'], desc:'A former close counselor who becomes a leading internal critic, culminating in the Nauvoo Expositor.', sources:[
+      {text:'William Law, Joseph Smith Papers biography — documents his April 1844 excommunication (citing Wilford Woodruff\'s and JS\'s own journals) and his role publishing the Nauvoo Expositor', url:'https://www.josephsmithpapers.org/person/william-law'}
+    ]},
+
+    // ---- Revelations & Scripture ----
+    {cat:'revelations', y:1823, m:9, d:22, recordedY:1832, recordedApprox:true, title:'Angelic instruction begins', people:['Joseph Smith'], desc:'Reports the beginning of repeated visits from an angel conveying historical and religious instruction over the four years before the plates were received.', sources:[
+      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving account, partly in JS\'s own handwriting, which mentions the visits of an angel and the coming forth of the record', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 4–5 — the fuller narrative, later published as Joseph Smith—History 1:27–54', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/4'}
+    ], researchNotes:'The Joseph Smith Papers notes that almost no original records survive from JS\'s life between 1805 and 1827, so every account of the 1823 visits is reminiscent. The two earliest are his own histories of circa summer 1832 and 1838–39, written roughly nine and fifteen years after the events they describe. The first-recorded date on this entry is set to 1832 on that basis.\n\nThe date itself comes from later accounts: JSP states that Moroni first appeared late in the night of 21–22 September 1823. The related Personal Life entry for the first visit is dated 21 September and this entry, covering the instruction that followed, 22 September.'},
+    {cat:'revelations', y:1828, m:4, d:12, approx:true, title:'Translation work begins in Harmony, PA', people:['Martin Harris'], desc:'Dictation of the Book of Mormon text begins at Harmony, Pennsylvania, with Martin Harris as scribe. The resulting manuscript — later described as 116 pages — was lost after Harris took it to Palmyra to show his family.', sources:[
+      {text:'Original Manuscript of the Book of Mormon, circa 12 April 1828–circa 1 July 1829 — the surviving dictation manuscript, whose date range begins with this work', url:'https://www.josephsmithpapers.org/paper-summary/original-manuscript-of-the-book-of-mormon-circa-12-april-1828-circa-1-july-1829/1'},
+      {text:'Revelation, July 1828 [D&C 3] — dictated after the loss of the manuscript pages', url:'https://www.josephsmithpapers.org/paper-summary/revelation-july-1828-dc-3/1'},
+      {text:'Preface to the Book of Mormon, circa August 1829 — where the number of lost pages is first specified as 116', url:'https://www.josephsmithpapers.org/paper-summary/preface-to-book-of-mormon-circa-august-1829/1'}
+    ], researchNotes:'Date corrected from January 1828 to circa 12 April 1828. The Joseph Smith Papers date Martin Harris\'s work as scribe to approximately 12 April – 14 June 1828, and title the surviving dictation manuscript "circa 12 April 1828–circa 1 July 1829." The earlier part of 1828 included the trip to show transcribed characters to Charles Anthon in New York, which is a separate event from the start of dictation.\n\nThe figure of 116 pages appears first in the preface to the 1830 Book of Mormon, written about a year after the loss; the pages themselves have never been recovered, so the number rests on that statement.'},
+    {cat:'revelations', y:1829, m:5, d:15, recordedY:1832, recordedApprox:true, title:'Reports receiving the Aaronic Priesthood', people:['Oliver Cowdery'], desc:'JS and Oliver Cowdery report that John the Baptist appeared and conferred the "priesthood of Aaron," authorising them to baptise, after which they baptised each other in the Susquehanna River near Harmony, Pennsylvania.', sources:[
+      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving record, mentioning the reception of priesthood by the ministering of angels; it does not name a date or the messenger', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
+      {text:'Oliver Cowdery, account in Patriarchal Blessings, 1:8–9, probably recorded summer or autumn 1835 — the earliest known record naming "Fryday, the 15th day of May, 1829," Harmony, and the baptisms that followed', url:'https://www.josephsmithpapers.org/site/priesthood-restoration'},
+      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 17–18 — the fullest narrative account', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/23'},
+      {text:'Revelation, circa August 1835 [D&C 27:8–14] — the published 1835 text naming John the Baptist; it is a revised and expanded version of a revelation originally dating to circa August 1830', url:'https://www.josephsmithpapers.org/paper-summary/revelation-circa-august-1835-dc-27/2'}
+    ], researchNotes:'No record made in 1829 describes this event. The earliest surviving reference is JS\'s circa summer 1832 history, which mentions receiving priesthood through the ministering of angels without naming a date or a messenger; the first-recorded date on this entry is set to 1832 on that basis, replacing an earlier value of 1838.\n\nThe earliest known record giving the specific date is Oliver Cowdery\'s account in the Patriarchal Blessings book, probably written in summer or autumn 1835 — about six years after the event. The text naming John the Baptist in D&C 27 is the 1835 published version; the Joseph Smith Papers describes it as a revised and expanded form of a revelation originally dating to circa August 1830.\n\nThe Joseph Smith Papers maintains a finding aid, "Priesthood Restoration," compiling the earliest records describing or alluding to these events; it is cited above as the source for the Patriarchal Blessings text, which is not separately imaged on the site.'},
+    {cat:'revelations', y:1829, m:6, approx:true, recordedY:1832, recordedApprox:true, title:'Reports receiving the Melchizedek Priesthood', people:['Oliver Cowdery'], desc:'A higher authority, later called the Melchizedek Priesthood, is reported as conferred after the Aaronic. The surviving records describe this in two different ways and none of them fixes a date.', sources:[
+      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving record, referring to a confirmation and reception of the high priesthood', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
+      {text:'Minutes and Discourse, 21 April 1834 (Minute Book 1) — JS\'s account of "the revelation of the priesthood of Aaron" and "the revelation of the high priesthood"', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-discourse-21-april-1834/2'},
+      {text:'Letter to the Church, 7 September 1842 [D&C 128:20–21] — JS summarises the restoration of priesthood and keys, mentioning Peter, James and John, and the voice of God in the chamber of "Father Whitmer"', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-of-jesus-christ-of-latter-day-saints-6-september-1842-dc-128/7'},
+      {text:'Joseph Smith Papers, "Priesthood Restoration" — finding aid compiling the earliest records describing or alluding to the restoration of authority', url:'https://www.josephsmithpapers.org/site/priesthood-restoration'}
+    ], researchNotes:'The Joseph Smith Papers states that historical records describing the reception of this higher authority are "generally less specific and more complex" than those for the Aaronic Priesthood, and the surviving accounts differ in kind: some describe Peter, James and John appearing and conferring a higher priesthood, while others describe an earlier event at the home of Peter Whitmer Sr. in which the voice of God commanded JS and Cowdery to ordain one another to the office of elder in a public meeting.\n\nNo surviving record fixes a date for the event. The June 1829 date on this entry is approximate and derives from its placement relative to the Aaronic Priesthood account rather than from a document. As with that entry, the earliest surviving reference is the circa summer 1832 history, so the first-recorded date is set to 1832, replacing an earlier value of 1838.'},
+    {cat:'revelations', y:1830, m:3, d:26, title:'Book of Mormon published', people:['Martin Harris'], desc:'Printing is completed at E. B. Grandin\'s shop in Palmyra and copies are first offered for sale, financed by Martin Harris against the mortgage of his farm.', sources:[
+      {text:'Book of Mormon, 1830 — the first edition itself', url:'https://www.josephsmithpapers.org/paper-summary/book-of-mormon-1830/1'},
+      {text:'Agreement with Martin Harris, 16 January 1830 — the arrangement securing Harris\'s financing of the printing', url:'https://www.josephsmithpapers.org/paper-summary/agreement-with-martin-harris-16-january-1830/1'},
+      {text:'Advertisement, Wayne Sentinel (Palmyra, NY), 26 Mar. 1830 — Grandin offers the book for sale, retail and wholesale, at his bookstore'}
+    ], researchNotes:'The publication date rests on the advertisement placed in the Wayne Sentinel, a newspaper printed in the same shop, offering the completed book for sale on 26 March 1830 — a commercial notice rather than a retrospective account, and contemporary with the event.\n\nThe third citation above is given without a link because the newspaper page is not separately imaged on the Joseph Smith Papers site.'},
+    {cat:'revelations', y:1832, m:12, d:27, title:'"Olive Leaf" revelation dictated', people:[], desc:'A lengthy revelation dictated at a conference of high priests in Kirtland, connecting light, truth and creation, and directing the elders to hold a solemn assembly, build a house of God, and establish a school for the prophets. Later canonized as Doctrine and Covenants 88.', sources:[
+      {text:'Revelation, 27–28 December 1832 [D&C 88:1–126] — earliest surviving copy, inscribed in Revelation Book 2 in the handwriting of Frederick G. Williams', url:'https://www.josephsmithpapers.org/paper-summary/revelation-27-28-december-1832-dc-881-126/1'},
+      {text:'Letter to William W. Phelps, 11 January 1833 — where JS calls it "the Olieve leaf which we have plucked from the tree of Paradise"', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-william-w-phelps-11-january-1833'}
+    ], researchNotes:'Date corrected from December 1831 to 27–28 December 1832. The Joseph Smith Papers date this revelation to a conference of high priests held in Kirtland on those two days. The original manuscript is not extant; the earliest surviving copy was inscribed in Revelation Book 2 by Frederick G. Williams, probably between late January and late February 1833. A separate revelation of 3 January 1833 (D&C 88:127–137) was later combined with it in print. Part of the text was published in The Evening and the Morning Star in February 1833, and the full text on a broadside in late 1833 or early 1834.'},
+    {cat:'revelations', y:1832, m:2, d:16, title:'Vision of the three degrees of glory', people:['Sidney Rigdon'], desc:'JS and Sidney Rigdon report a joint vision of the afterlife while revising the New Testament at the John and Alice Johnson home in Hiram, Ohio, describing three degrees of glory — celestial, terrestrial and telestial. Later canonized as Doctrine and Covenants 76.', sources:[
+      {text:'Vision, 16 February 1832 [D&C 76] — earliest extant copy, inscribed in Revelation Book 2 in the handwriting of Frederick G. Williams with several lines by JS, and signed by Rigdon and JS', url:'https://www.josephsmithpapers.org/paper-summary/vision-16-february-1832-dc-76/1'}
+    ], researchNotes:'The account was copied into Revelation Book 2 probably during February or March 1832, within weeks of the reported vision. Rigdon\'s signature precedes JS\'s on the record, which the Joseph Smith Papers notes is consistent with Rigdon having acted as scribe; the extant record shows no other revelatory text signed in this way. The account was published in The Evening and the Morning Star in July 1832. Philo Dibble, who said he was present in the room, gave accounts in 1877, 1882 and 1892 that differ from one another; his description of how the vision proceeded appears only in the 1892 telling, sixty years after the event.'},
+    {cat:'revelations', y:1833, m:2, d:27, title:'Word of Wisdom revelation recorded', people:['Emma Hale Smith'], desc:'A revelation dictated at Kirtland counselling against tobacco, wine, "strong drinks" and "hot drinks," and recommending grains, herbs and fruit, with meat used sparingly. Later canonized as Doctrine and Covenants 89.', sources:[
+      {text:'Revelation, 27 February 1833 [D&C 89] — featured version titled "A Word of Wisdom," copied circa June 1833 into Sidney Gilbert\'s notebook in Gilbert\'s handwriting', url:'https://www.josephsmithpapers.org/paper-summary/revelation-27-february-1833-dc-89/1'}
+    ], researchNotes:'On the circumstances usually given for the revelation: the Joseph Smith Papers attributes the account of heavy tobacco use in the School of the Prophets, and of Emma Smith and others objecting to cleaning tobacco juice from the floor, to Brigham Young. Young did not attend the school when the revelation was recorded and stated he had the information from those who were there; his account is a discourse of 8 February 1868, thirty-five years afterwards.\n\nZebedee Coltrin, who was present, recalled JS coming out of the translating room and reading the revelation to the school. Coltrin\'s recollections were recorded in 1883, fifty years afterwards, and give the number in attendance as twenty-one in one telling and twenty-two in another.\n\nThe earliest surviving text is the copy in Sidney Gilbert\'s notebook, made around June 1833, roughly four months after the date of the revelation.'},
+    {cat:'revelations', y:1836, m:4, d:3, title:'Visions in the Kirtland Temple', people:['Oliver Cowdery'], desc:'A week after the temple\'s dedication, JS and Oliver Cowdery report visions behind the lowered veils of the west pulpits — of Jesus Christ accepting the house, and of Moses, Elias and Elijah conferring priesthood keys. Later canonized as Doctrine and Covenants 110.', sources:[
+      {text:'Visions, 3 April 1836 [D&C 110] — recorded in JS\'s journal, pp. 192–193, in the handwriting of Warren A. Cowdery', url:'https://www.josephsmithpapers.org/paper-summary/visions-3-april-1836-dc-110/1'},
+      {text:'Minutes and Prayer of Dedication, 27 March 1836 [D&C 109] — the dedication a week earlier, at which JS prayed that Christ would manifest himself in the house', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-prayer-of-dedication-27-march-1836-dc-109'}
+    ], researchNotes:'Date corrected from 27 March to 3 April 1836. The 27 March date belongs to the temple\'s dedication (D&C 109), which is recorded separately under Church History; the Joseph Smith Papers date these visions a week later.\n\nOn authorship: veils were lowered enclosing the west pulpits, and JS and Oliver Cowdery were secluded behind them. The journal entry was written by Warren A. Cowdery — JS\'s scribe and Oliver Cowdery\'s brother — who was not among the two participants. The Joseph Smith Papers states he recorded it "sometime shortly after" and may have worked from an earlier text no longer extant, or from oral reports by one or both participants. He wrote it in the third person, in contrast to the first-person language used elsewhere in that journal. Neither participant left a firsthand written account at the time; the other near-contemporary record, a letter William W. Phelps wrote to his wife that month describing "a manifestation of the Lord" to JS and Cowdery, is likewise by a non-participant. Willard Richards recast the journal account into the first person by 7 November 1843 for JS\'s multivolume history, and that first-person version was added to the Doctrine and Covenants in 1876.\n\nNo first-recorded date is set on this entry: the earliest known account was written within days of the event, so it is not retrospective in the sense that field tracks. The 1843 recasting is a later version of an already-existing record rather than the first one.'},
+    {cat:'revelations', y:1838, m:4, d:26, title:'Revelation on the church\'s official name', people:[], desc:'A revelation dictated at Far West, Missouri, names the church "The Church of Jesus Christ of Latter Day Saints," directs continued gathering to Far West, and commands a temple be built there. Later canonized as Doctrine and Covenants 115.', sources:[
+      {text:'Revelation, 26 April 1838 [D&C 115] — copied into JS\'s journal (the "Scriptory Book"), pp. 32–34, in the handwriting of George W. Robinson', url:'https://www.josephsmithpapers.org/paper-summary/revelation-26-april-1838-dc-115/1'},
+      {text:'"An Extract of Revelation," Elders\' Journal, Aug. 1838, 52–53 — the revelation as published in the church\'s own newspaper', url:'https://www.josephsmithpapers.org/paper-summary/elders-journal-august-1838/4'}
+    ], researchNotes:'George W. Robinson inscribed the revelation in JS\'s journal at or near the time it was dictated; the Joseph Smith Papers notes the journal appears to have been kept regularly from this entry onward, placing the inscription in late April or early May 1838. The revelation was probably dictated orally to a scribe, as was typical of JS\'s revelations. The name it gives is spelled "Latter Day Saints" in the manuscript; the hyphenated "Latter-day Saints" is a later standardisation.'},
+    {cat:'revelations', y:1841, m:1, d:19, title:'Revelation directing a baptismal font', people:[], desc:'A revelation designates Nauvoo a cornerstone of Zion and calls for a temple, directing that a font be built so that baptisms for the dead may be performed in the house rather than outside it. Later canonized as Doctrine and Covenants 124.', sources:[
+      {text:'Revelation, 19 January 1841 [D&C 124], p. 5 — the passage directing the font: "For a baptismal font there is not upon the earth, that they, my saints, may be baptized for those who are dead"', url:'https://www.josephsmithpapers.org/paper-summary/revelation-19-january-1841-dc-124/3'}
+    ], researchNotes:'The revelation\'s own language indicates the ordinance was already being performed before this date, outside a temple, and was now to belong to the house: it permits the practice away from a house "only in the days of your poverty, wherein ye are not able to build a house unto me."\n\nThe Joseph Smith Papers records that a temporary wooden font was dedicated in the basement of the unfinished temple on 8 November 1841, so the direction given in January was acted on within the year.\n\nThis entry covers the practice and the font; the separate entry of September 1842 covers its regulation — the requirement that baptisms be witnessed and recorded — which is a distinct development.'},
+    {cat:'revelations', y:1842, m:9, d:7, title:'Baptism for the dead formalized', people:[], desc:'Two letters to the church set out requirements for witnessing and recording baptisms for the dead and give the practice its fullest doctrinal statement. Later canonized as Doctrine and Covenants 127 and 128.', sources:[
+      {text:'Letter to the Church, 7 September 1842 [D&C 128] — expands the instructions of the letter a week earlier and sets out the doctrine at length', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-of-jesus-christ-of-latter-day-saints-6-september-1842-dc-128/7'},
+      {text:'Letter to "All the Saints in Nauvoo," 1 September 1842 [D&C 127] — instructs that a recorder witness each baptism, and promises further instruction; printed in the Times and Seasons, 15 Sept. 1842'}
+    ], researchNotes:'Date moved from an approximate 1841 to 7 September 1842. The 1841 material — the revelation directing a font, and the font\'s dedication that November — is now carried by its own entry, since the introduction of the practice and its later regulation are distinct developments a year and a half apart.\n\nWhat the September 1842 letters supply is the formalisation this entry describes: the requirement that a recorder witness and register each baptism, and the extended doctrinal exposition. The Joseph Smith Papers records that after the 7 September letter was read publicly on 11 September 1842, baptisms resumed at the font that evening and entries began to be recorded that night.\n\nThe second citation above is given without a link because that document was not among those verified.'},
+    {cat:'revelations', y:1843, m:7, d:12, title:'Revelation on eternal marriage recorded', people:['Emma Hale Smith'], desc:'A written revelation on eternal and plural marriage is dictated at Nauvoo and taken down by William Clayton. Later canonized as Doctrine and Covenants 132.', sources:[
+      {text:'Revelation, 12 July 1843 [D&C 132] — the Joseph Smith Papers annotation draws on William Clayton\'s journal and his 1874 affidavit for the circumstances of the dictation', url:'https://www.josephsmithpapers.org/paper-summary/revelation-12-july-1843-dc-132/1'}
+    ], researchNotes:'The same document is cited from the Personal Life entry on plural marriage within the inner circle; the two entries approach it from different threads and share the citation.\n\nOn provenance: the account of the dictation itself comes from William Clayton, who wrote it down. His journal is contemporary; the affidavit elaborating on the circumstances dates to 1874, thirty-one years afterwards. The revelation was not published during JS\'s lifetime.'},
+
+    // ---- Church History ----
+    {cat:'church', y:1830, m:4, d:6, title:'Church of Christ organized', people:['Oliver Cowdery','David Whitmer'], desc:'The church is formally organized, with JS and Oliver Cowdery ordaining one another as elders before a meeting of baptized believers.', sources:[
+      {text:'Revelation, 6 April 1830 [D&C 21] — dictated the day the church was organized; copied into Revelation Book 1 circa March 1831', url:'https://www.josephsmithpapers.org/paper-summary/revelation-6-april-1830-dc-21/1'},
+      {text:'Articles and Covenants, circa April 1830 [D&C 20:2\u20133] — states that JS and Cowdery ordained each other elders in the church', url:'https://www.josephsmithpapers.org/paper-summary/articles-and-covenants-circa-april-1830-dc-20/1'},
+      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, p. 37 \u2014 account of the 6 April 1830 meeting', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/43'}
+    ], researchNotes:'The revelation of 6 April 1830 is contemporary with the organization; the surviving copy was inscribed in Revelation Book 1 about eleven months later. The Articles and Covenants, which describe the mutual ordination, date to about the same period and were published in the Painesville Telegraph in April 1831. The narrative in JS\'s manuscript history was composed from 1838 onward.'},
+    {cat:'church', y:1831, m:1, approx:true, title:'Headquarters shifts to Kirtland, Ohio', people:['Sidney Rigdon'], desc:'Church members in New York are directed by revelation to gather to Ohio, and Kirtland becomes the church\'s first major center.', sources:[
+      {text:'Revelation, 30 December 1830 [D&C 37] \u2014 dictated near Fayette, New York, directing the move to Ohio', url:'https://www.josephsmithpapers.org/paper-summary/revelation-30-december-1830-dc-37/1'}
+    ], researchNotes:'The same document is cited from the Personal Life entry on the family\'s relocation to Kirtland; the two entries approach the move from different threads and share the citation. The revelation is dated 30 December 1830 and the gathering followed over the early months of 1831, which is why this entry carries an approximate January 1831 date rather than the date of the document.'},
+    {cat:'church', y:1831, m:7, d:20, title:'Independence, Missouri designated as Zion', people:[], desc:'A revelation identifies Missouri as the land of Zion and Independence as the "centre place," where a city and temple are to be built. Later canonized as Doctrine and Covenants 57.', sources:[
+      {text:'Revelation, 20 July 1831 [D&C 57:1\u20133] \u2014 designates Missouri as the land of Zion and Independence as the centre place', url:'https://www.josephsmithpapers.org/paper-summary/revelation-20-july-1831-dc-57'}
+    ], researchNotes:'Date made specific: the revelation is dated 20 July 1831, where the entry previously carried an approximate July. This designation is the reference point for later entries that describe the Saints being driven from Jackson County and, in 1838, being commanded to build a city of Zion at Far West instead \u2014 the Joseph Smith Papers notes that the 1838 revelation marked a change in plan, since Far West was not the "centre place" named here.'},
+    {cat:'church', y:1834, m:5, d:5, title:'Zion\'s Camp expedition departs', people:['Brigham Young'], desc:'An expedition of roughly 205 men and about 20 women and children marches from Ohio to Missouri to help Saints driven from Jackson County regain their lands. Known at the time as the Camp of Israel.', sources:[
+      {text:'Revelation, 24 February 1834 [D&C 103] \u2014 directs the recruitment of up to five hundred men to go to Missouri; featured copy in Orson Pratt\'s handwriting, made within weeks', url:'https://www.josephsmithpapers.org/paper-summary/revelation-24-february-1834-dc-103/1'},
+      {text:'Minutes, 24 February 1834 \u2014 the Kirtland high council meeting the same day, at which JS volunteered to lead the expedition and was appointed "Commander in Chief of the Armies of Israel"', url:'https://www.josephsmithpapers.org/paper-summary/minutes-24-february-1834'}
+    ], researchNotes:'Date made specific: JS departed Kirtland with most of the volunteers on 5 May 1834, where the entry previously carried an approximate May. A second contingent under Hyrum Smith and Lyman Wight left Michigan Territory the same day; the two joined on 9 June at the Salt River settlement in Missouri.\n\nThe Joseph Smith Papers notes that extant records do not establish whether the revelation was dictated before, during, or after the high council meeting of the same day, so it cannot be determined from the documents whether it prompted the decision to march or affirmed a decision already taken.\n\nThe camp disbanded without regaining the Jackson County lands, its dispersal hastened by an outbreak of cholera.'},
+    {cat:'church', y:1835, m:2, d:14, title:'Quorum of the Twelve Apostles organized', people:['Brigham Young'], desc:'At a conference in Kirtland, the Three Witnesses to the Book of Mormon choose twelve men as apostles, who are then ordained \u2014 acting on a revelation of June 1829 that had directed the choosing of twelve.', sources:[
+      {text:'Minutes, 14 February 1835 \u2014 the record of the conference and the list of the twelve chosen; copied into the "Record of the Transactions of the Twelve" in Orson Hyde\'s handwriting', url:'https://www.josephsmithpapers.org/paper-summary/minutes-14-february-1835/1'},
+      {text:'Record of the Twelve, 14 February\u201328 August 1835 \u2014 the quorum\'s own record, opening with its organization', url:'https://www.josephsmithpapers.org/paper-summary/record-of-the-twelve-14-february-28-august-1835/7'}
+    ], researchNotes:'The minutes were copied into the record book between about 27 February and 2 May 1835, within roughly three months of the meeting, in the handwriting of Orson Hyde \u2014 himself one of the twelve chosen that day, so a participant rather than an outside scribe.\n\nThe minutes state the twelve were chosen and ordained by the Three Witnesses (Oliver Cowdery, David Whitmer and Martin Harris). Heber C. Kimball, also among the twelve, recorded that the First Presidency then laid hands on them to confirm the blessings and ordination; his journal account was written circa 1842\u20131858.'},
+    {cat:'church', y:1836, m:3, d:27, title:'Kirtland Temple dedicated', people:[], desc:'The church\'s first temple is completed and dedicated, with a dedicatory prayer later canonized as Doctrine and Covenants 109.', sources:[
+      {text:'Minutes and Prayer of Dedication, 27 March 1836 [D&C 109] \u2014 the dedication service and prayer', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-prayer-of-dedication-27-march-1836-dc-109'}
+    ], researchNotes:'The dedicatory prayer asks that the house be a place where the Son of Man would manifest himself to his people. The visions reported a week later, on 3 April, are recorded as a separate entry under Revelations & Scripture; the two had previously been merged under this date.'},
+    {cat:'church', y:1837, m:1, d:2, title:'Kirtland Safety Society founded', people:['Sidney Rigdon'], desc:'A church-affiliated financial institution is founded at Kirtland amid a real-estate and currency boom, after the Ohio legislature declined to grant a banking charter.', sources:[
+      {text:'Articles of Agreement for the Kirtland Safety Society Anti-Banking Company, 2 January 1837 \u2014 the institution\'s founding document', url:'https://www.josephsmithpapers.org/paper-summary/articles-of-agreement-for-the-kirtland-safety-society-anti-banking-company-2-january-1837/3'},
+      {text:'Introduction to the Kirtland Safety Society \u2014 the Joseph Smith Papers documentary account of its founding, operation and failure', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'}
+    ], researchNotes:'Date made specific to the date of the founding document, 2 January 1837, where the entry previously carried an approximate January. The same two documents are cited from the Acquaintances entry on the falling-out that followed the society\'s failure.\n\nThe name in the founding document is "Anti-Banking Company," reflecting that the institution operated without the banking charter the legislature had refused.'},
+    {cat:'church', y:1838, m:4, d:26, title:'Church officially renamed', people:[], desc:'The revelation dictated at Far West gives the church its official name, "The Church of Jesus Christ of Latter Day Saints."', sources:[
+      {text:'Revelation, 26 April 1838 [D&C 115] \u2014 copied into JS\'s journal (the "Scriptory Book") in the handwriting of George W. Robinson', url:'https://www.josephsmithpapers.org/paper-summary/revelation-26-april-1838-dc-115/1'}
+    ], researchNotes:'The same document is cited from the Revelations & Scripture entry, which treats it as a revelation; this entry treats the naming as an institutional event. The manuscript spells the name "Latter Day Saints"; the hyphenated form is a later standardisation.'},
+    {cat:'church', y:1838, m:11, approx:true, title:'Saints expelled from Missouri', people:[], desc:'Following armed conflict and the state\'s extermination order, church members surrender at Far West and begin leaving Missouri, most crossing into Illinois over the winter of 1838\u201339.', sources:[
+      {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict to the surrender at Far West', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'},
+      {text:'Joseph Smith et al., Letter to the Church and Edward Partridge, 20 March 1839 \u2014 written from Liberty Jail during the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-and-edward-partridge-20-march-1839/1'}
+    ], researchNotes:'The expulsion was a process rather than a single event, running from the surrender at Far West at the start of November 1838 through the following winter, which is why this entry carries an approximate date.\n\nThe order that prompted it \u2014 Governor Lilburn Boggs\'s Executive Order 44 of 27 October 1838 \u2014 is recorded separately under Local & Regional Events, as a state action rather than a church one. JS\'s manuscript history of this period was composed from 1838 onward, in part while he was imprisoned; the Liberty Jail letter is contemporary with the expulsion itself.'},
+    {cat:'church', y:1839, m:5, approx:true, title:'Nauvoo, Illinois founded', people:[], desc:'After the expulsion from Missouri, the church purchases land at Commerce on a bend of the Mississippi; the settlement is renamed Nauvoo and becomes the new gathering place.', sources:[
+      {text:'Joseph Smith, History, 1838\u20131856, vol. C-1 [2 Nov. 1838\u201331 July 1842] \u2014 JS\'s manuscript history covering the settlement at Commerce and its renaming', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-c-1-2-november-1838-31-july-1842/1'}
+    ], researchNotes:'The same volume is cited from the Personal Life entry on the family settling at Commerce. The founding was gradual \u2014 land purchases from spring 1839, with the name Nauvoo adopted over the following months \u2014 so the entry carries an approximate date rather than a single document date.'},
+    {cat:'church', y:1841, m:4, d:6, title:'Nauvoo Temple cornerstone laid', people:[], desc:'Cornerstones are laid for a temple on the bluff at Nauvoo, in a public ceremony attended by the Nauvoo Legion and invited guests from around Hancock County.', sources:[
+      {text:'Temple, Nauvoo, Hancock County, Illinois \u2014 Joseph Smith Papers place record, giving the cornerstone laying as 6 April 1841 and summarising construction', url:'https://www.josephsmithpapers.org/place/temple-nauvoo-illinois'},
+      {text:'Revelation, 19 January 1841 [D&C 124] \u2014 the revelation commanding the temple, given some three months earlier', url:'https://www.josephsmithpapers.org/paper-summary/revelation-19-january-1841-dc-124/3'},
+      {text:'"Celebration of the Anniversary of the Church," Times and Seasons, 15 Apr. 1841 \u2014 contemporary report of the ceremony'}
+    ], researchNotes:'The ceremony was deliberately public: word was sent out by newspaper and letter, prominent people from around the county were invited, a stand was built for dignitaries, and the Nauvoo Legion formed a hollow square around the building\'s footprint. It was held on 6 April, the anniversary of the church\'s organization.\n\nThe third citation is given without a link because that newspaper page was not among the documents verified.'},
+    {cat:'church', y:1842, m:3, d:17, title:'Relief Society founded', people:['Emma Hale Smith'], desc:'Twenty women meet in the room above JS\'s store at Nauvoo and are organized as the Female Relief Society of Nauvoo. Emma Hale Smith is elected president and selects two counselors \u2014 the first ecclesiastical positions held by women in the church.', sources:[
+      {text:'Nauvoo Relief Society Minute Book, 17 March 1842 \u2014 minutes of the inaugural meeting', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-relief-society-minute-book/29'},
+      {text:'Nauvoo Relief Society Minute Book \u2014 the volume itself, kept 17 Mar. 1842\u201316 Mar. 1844 in the handwriting of Eliza R. Snow, Phebe Bartholomew Wheeler, Hannah Ells and an unidentified scribe', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-relief-society-minute-book/3'}
+    ], researchNotes:'The minute book was presented to the society by Willard Richards on 17 March 1842, the day of the first meeting, and opens with that meeting\'s minutes. The Joseph Smith Papers notes copying errors in the volume indicating the minutes were probably taken on loose pages and copied in afterwards, so the book is a fair copy rather than the original notes.\n\nJS told the women at that first meeting that "the minutes of your meetings will be precedents for you to act upon \u2014 your Constitution and law," and the Joseph Smith Papers describes these minutes as the only record of teachings he directed specifically to women.\n\nThe often-quoted description of the society being organized "under the priesthood after the pattern of the priesthood" comes from Sarah M. Kimball\'s autobiography, published in the Woman\'s Exponent on 1 September 1883 \u2014 forty-one years after the meeting.\n\nBy the last recorded meeting in March 1844, 1,331 women had enrolled.'},
+    {cat:'church', y:1844, m:8, d:8, title:'Succession crisis begins', people:['Brigham Young','Sidney Rigdon'], desc:'In the weeks after JS\'s death, competing claims to lead the church are put to the Saints at Nauvoo, most prominently by Sidney Rigdon and by Brigham Young on behalf of the Quorum of the Twelve.', sources:[
+      {text:'Sidney Rigdon, Joseph Smith Papers biography \u2014 documents his claim to lead the church after JS\'s death and his subsequent excommunication in 1844', url:'https://www.josephsmithpapers.org/person/sidney-rigdon'},
+      {text:'Brigham Young, Joseph Smith Papers biography \u2014 documents his role as president of the Quorum of the Twelve at JS\'s death', url:'https://www.josephsmithpapers.org/person/brigham-young'},
+      {text:'Thomas Bullock, shorthand notes of the morning meeting of 8 August 1844, transcribed and published as "Sidney Rigdon\'s Plea to the Saints," BYU Studies Quarterly 53, no. 2 (2014): 121\u2013139'}
+    ], researchNotes:'This entry sits at the edge of the Joseph Smith Papers\' scope, which is built around JS\'s own documents and therefore largely ends at his death on 27 June 1844. The two citations above are its biographical records rather than documents of the succession meetings themselves; sourcing this period properly requires other repositories.\n\nDate made specific to 8 August 1844, the day of the meetings at which the competing claims were put to the assembled Saints, where the entry previously carried an approximate August. The fullest contemporary record of the morning meeting is Thomas Bullock\'s shorthand, which was not transcribed and published until 2014; the third citation is given without a link because that publication was not among the documents verified.'},
+
+    // ---- Local & Regional Events ----
+    {cat:'local', y:1816, approx:true, title:'"Year Without a Summer"', people:[], desc:'Aerosols from the 1815 eruption of Mount Tambora in Indonesia cool the global climate. Frost and snow persist through the summer across New England and New York, crops fail, and grain prices soar \u2014 driving migration westward.', sources:[
+      {text:'"1816 \u2014 The Year Without Summer," U.S. National Park Service \u2014 summarises the Tambora eruption and its documented effects across the northeastern states', url:'https://www.nps.gov/articles/000/1816-the-year-without-summer.htm'}
+    ], researchNotes:'Outside the Joseph Smith Papers\' subject matter, so sourced to a federal agency summary rather than a primary document. The NPS account records May frost killing crops in New York, Massachusetts, New Hampshire and Vermont, June snow at Albany, and frost persisting into late August in Virginia.\n\nThis entry is the context for the Personal Life entry on the Smith family\'s move to western New York: crop failure and debt following this season are given there as the reason for the move.'},
+    {cat:'local', y:1817, m:7, d:4, title:'Erie Canal construction begins', people:[], desc:'Ground is broken at Rome, New York for a canal to link the Great Lakes at Buffalo with the Hudson at Albany. Construction draws labour and commerce through the region of western New York later called the "Burned-over District."', sources:[
+      {text:'"Opening of the Erie Canal," Library of Congress research guide \u2014 covers the canal\'s construction and 1825 opening', url:'https://guides.loc.gov/this-month-in-business-history/october/opening-erie-canal'}
+    ], researchNotes:'Date made specific to 4 July 1817, the groundbreaking at Rome, New York, where the entry previously carried an approximate 1817.\n\nOutside the Joseph Smith Papers\' subject matter and sourced to a Library of Congress research guide rather than a primary document. A stronger primary source \u2014 New York State canal commission records, or contemporary newspaper coverage \u2014 would be an improvement if this entry is revisited.'},
+    {cat:'local', y:1820, approx:true, title:'Second Great Awakening intensifies', people:[], desc:'Waves of Protestant revivalism move through western New York, with competing Methodist, Baptist and Presbyterian preaching drawing large numbers in the Palmyra region.', sources:[
+      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, pp. 2\u20133 \u2014 describes "an unusual excitement on the subject of religion" in the neighbourhood and the competition between denominations', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/2'}
+    ], researchNotes:'This is a regional religious movement spanning years rather than a dated event, so the 1820 date marks the period of greatest local intensity as described in the sources rather than a specific occurrence.\n\nThe citation is a retrospective account written from 1838 onward, by a participant in the events it describes and one with an interest in them. Independent corroboration of revival activity in the Palmyra area in this period exists in local newspaper and denominational records, which are not cited here; adding one would strengthen the entry.\n\n**On the kind of entry this is:** it records a general condition prevailing over a period rather than a specific dated occurrence, so the date is loose by nature and the citation is illustrative rather than documentary. It is included because the religious climate is genuinely relevant context for entries around it, but it should be read differently from an entry anchored to a single document.'},
+    {cat:'local', y:1825, m:10, d:26, title:'Erie Canal completed', people:[], desc:'The canal opens along its full 363 miles, Governor DeWitt Clinton travelling from Buffalo aboard the Seneca Chief. Transport costs collapse, accelerating settlement, commerce and the movement of ideas along its route.', sources:[
+      {text:'"Opening of the Erie Canal," Library of Congress research guide \u2014 covers the 26 October 1825 opening and its economic effects', url:'https://guides.loc.gov/this-month-in-business-history/october/opening-erie-canal'}
+    ], researchNotes:'Date made specific to 26 October 1825, where the entry previously carried an approximate 1825. Outside the Joseph Smith Papers\' subject matter and sourced to a Library of Congress research guide rather than a primary document.'},
+    {cat:'local', y:1833, m:11, d:4, title:'Mob violence in Jackson County, Missouri', people:[], desc:'Armed conflict between settlers and church members culminates in the expulsion of the Saints from Jackson County, most crossing the Missouri River into Clay County.', sources:[
+      {text:'Parley P. Pratt et al., "\u2018The Mormons\u2019 So Called," The Evening and the Morning Star, Extra, Feb. 1834 \u2014 a contemporary published account of the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/parley-p-pratt-et-al-the-mormons-so-called-12-december-1833'},
+      {text:'Revelation, 16\u201317 December 1833 [D&C 101] \u2014 dictated in response to news of the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/revelation-16-17-december-1833-dc-101'}
+    ], researchNotes:'The first citation is a published account written by participants on the church\'s side, within months of the events, and printed in the church\'s own newspaper. It is contemporary but partisan; accounts from the other side of the conflict exist in Missouri county and newspaper records and are not cited here.'},
+    {cat:'local', y:1837, m:5, approx:true, title:'Panic of 1837', people:[], desc:'New York banks suspend specie payments in May 1837, triggering a national financial crisis and a prolonged depression that bankrupted roughly a third of the states \u2014 and that contributed directly to the collapse of the Kirtland Safety Society.', sources:[
+      {text:'Specie Circular, executive order of President Andrew Jackson, 11 July 1836 \u2014 required payment in specie for public land purchases, one of the immediate precipitants'},
+      {text:'Introduction to the Kirtland Safety Society \u2014 the Joseph Smith Papers account of the society\'s failure, which situates it against the wider financial crisis', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'}
+    ], researchNotes:'Outside the Joseph Smith Papers\' subject matter except where it bears on Kirtland. The first citation is given without a link because that document was not among those verified; a financial-history repository such as FRASER at the Federal Reserve Bank of St. Louis would be the natural place to source this entry properly.\n\nThe usual account of the crisis assigns it several causes at once \u2014 the Specie Circular, the Deposit Act of 1836, the expiry of the Second Bank of the United States, and tightening British monetary policy \u2014 rather than any single trigger.'},
+    {cat:'local', y:1838, m:10, d:27, title:'Missouri "Extermination Order"', people:['Lilburn Boggs'], desc:'Governor Lilburn Boggs issues Executive Order 44, directing General John B. Clark that "the Mormons must be treated as enemies, and must be exterminated or driven from the State if necessary for the public peace."', sources:[
+      {text:'Lilburn W. Boggs, Executive Order 44, 27 October 1838 \u2014 digitised scan of the order; the original is held by the Missouri State Archives', url:'https://archive.org/details/BoggsExterminationOrder44'}
+    ], researchNotes:'A state government document rather than a church one, which is why it sits in this category; the resulting expulsion is recorded separately under Church History.\n\nThe order was issued three days after the Battle of Crooked River and, per the accounts, on the basis of reports of that engagement and of rumoured Mormon military plans. It was formally rescinded by Governor Christopher S. Bond on 25 June 1976, nearly 138 years later.\n\nThe citation links to a digitised scan rather than to the Missouri State Archives\' own catalogue record; a direct archival citation would be preferable if this entry is revisited.'},
+    {cat:'local', y:1838, m:10, d:30, title:'Haun\'s Mill Massacre', people:[], desc:'Three days after the extermination order, a Missouri militia company attacks the small settlement at Haun\'s Mill on Shoal Creek, killing seventeen and wounding others; some of the dead were placed in an unfinished well.', sources:[
+      {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict through the events of late October 1838', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'}
+    ], researchNotes:'The documentary record for this event consists largely of survivor affidavits and later petitions to the federal government, collected in the 1839\u201340 Missouri redress petitions, together with Missouri militia correspondence. None of that material is cited here directly, and the single citation given is a retrospective church history rather than a contemporary account of the attack itself. **A better source is needed here.** Given the gravity of the event \u2014 seventeen people killed \u2014 citing only a retrospective church history is inadequate. The survivor affidavits and the 1839\u201340 redress petitions are the records that should carry this entry, and locating them is a priority for the next round of sourcing.'},
+    {cat:'local', y:1839, m:12, approx:true, title:'Illinois politicians court the new settlers', people:[], desc:'Both Whigs and Democrats in Illinois compete for the support of the Saints arriving from Missouri, laying the political groundwork for the unusually broad city charter granted a year later.', sources:[
+      {text:'Act to Incorporate the City of Nauvoo, 16 December 1840 \u2014 the resulting charter; the Joseph Smith Papers notes it drew overwhelming support from both parties, each interested in courting the Mormon vote', url:'https://www.josephsmithpapers.org/paper-summary/act-to-incorporate-the-city-of-nauvoo-16-december-1840/4'}
+    ], researchNotes:'Retitled from "Commerce granted city charter groundwork," which implied a charter action in 1839; no charter was granted that year. What the entry describes is the political courtship preceding the December 1840 act.\n\nThis entry overlaps substantially with the charter entry that follows it and is thinly evidenced on its own \u2014 the date is approximate and no document marks it. **On the kind of entry this is:** like the Second Great Awakening entry, it records a general condition prevailing over a period rather than a specific dated occurrence. No document marks it, the date is approximate, and the citation is the charter that resulted rather than evidence of the courtship itself. It is retained because the political context genuinely bears on why the charter was so broad, but it should be read differently from an entry anchored to a document. Worth considering whether it should instead be merged into the charter entry.'},
+    {cat:'local', y:1840, m:12, d:16, title:'Nauvoo city charter enacted', people:[], desc:'The Illinois legislature incorporates the City of Nauvoo, granting it a city council, its own militia (the Nauvoo Legion), a university, and a municipal court with the power to issue writs of habeas corpus. The charter took effect in February 1841.', sources:[
+      {text:'Act to Incorporate the City of Nauvoo, 16 December 1840 \u2014 the charter as enacted; printed in the Times and Seasons, 15 Jan. 1841', url:'https://www.josephsmithpapers.org/paper-summary/act-to-incorporate-the-city-of-nauvoo-16-december-1840/4'}
+    ], researchNotes:'Date corrected from 16 December 1841 to 16 December 1840 \u2014 the year had been transposed. The Joseph Smith Papers dates the act to 16 December 1840, with the charter taking effect in February 1841. The entry was retitled from "in effect" to "enacted" to match the date now given; if the effective date is preferred, it would be February 1841.\n\nThe habeas corpus power granted to the municipal court became consequential later, as it was used to resist attempts to extradite JS to Missouri.'},
+    {cat:'local', y:1844, m:6, d:7, title:'Nauvoo Expositor published', people:['William Law'], desc:'Dissidents led by William Law publish the first and only issue of the Nauvoo Expositor, sharply critical of JS. The paper announces itself as a reform effort from within the church.', sources:[
+      {text:'Nauvoo Expositor, 7 June 1844 \u2014 the single issue itself', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-expositor-7-june-1844'},
+      {text:'Joseph Smith, Journal, 7 June 1844 \u2014 JS\'s own journal entry for the day of publication', url:'https://www.josephsmithpapers.org/paper-summary/journal-december-1842-june-1844-book-4-1-march-22-june-1844/150'},
+      {text:'William Law, Joseph Smith Papers biography \u2014 documents his April 1844 excommunication and his role in the paper', url:'https://www.josephsmithpapers.org/person/william-law'}
+    ], researchNotes:'Split from a single entry that had covered both the publication and the destruction of the press three days later; the two are now recorded separately, since they are distinct acts by different parties.\n\nThe issue itself survives and is imaged by the Joseph Smith Papers, so this entry rests on the document rather than on accounts of it. The same biography of William Law is cited from the Acquaintances entry on his break with JS.'},
+    {cat:'local', y:1844, m:6, d:10, title:'Nauvoo Expositor press destroyed', people:['William Law'], desc:'The Nauvoo city council declares the Expositor\'s printing establishment a public nuisance and orders its removal; JS as mayor directs the city marshal to destroy the press, which is done the same day. The act ignites regional outrage and leads directly to JS\'s arrest.', sources:[
+      {text:'Resolution, 10 June 1844 \u2014 the city council\'s declaration that the printing establishment "is a public Nuisance," instructing the mayor to remove it "in such manner as he shall direct"', url:'https://www.josephsmithpapers.org/paper-summary/resolution-10-june-1844/1'},
+      {text:'Mayor\'s Order to Nauvoo City Marshal, 10 June 1844 \u2014 JS\'s order to John P. Greene to destroy the press', url:'https://www.josephsmithpapers.org/paper-summary/mayors-order-to-nauvoo-city-marshal-10-june-1844'},
+      {text:'Minutes, 10 June 1844 \u2014 the city council meeting at which the resolution was debated and passed', url:'https://www.josephsmithpapers.org/paper-summary/minutes-10-june-1844'},
+      {text:'Warrant, 11 June 1844, State of Illinois v. JS et al. for Riot \u2014 the charge brought the following day', url:'https://www.josephsmithpapers.org/paper-summary/warrant-11-june-1844-state-of-illinois-v-js-et-al-for-riot-a'}
+    ], researchNotes:'Split from a single entry dated 7 June that had compressed publication and destruction into one event three days apart.\n\nOn provenance: the city council\'s original resolution is not extant. It was sent to JS\'s attorneys, Hugh T. Reid and James W. Woods, who requested it on 24 June 1844; the version cited here is a handwritten copy made by William Clayton, JS\'s private clerk, apparently on or about 25 June \u2014 about two weeks after the event, and written on the same leaf as a copy of the mayor\'s order. The Nauvoo Neighbor published a slightly altered form of the resolution on 17 and 19 June, substituting "office" for "establishment."\n\nThe council debated the measure on 8 June and again on 10 June. The Joseph Smith Papers records that all members voted in favour except Councilor Benjamin Warrington, who was not a member of the church and urged instead that the proprietors be given notice to desist and then fined for noncompliance.\n\nThe council\'s authority to declare a nuisance came from the Nauvoo charter of 16 December 1840, recorded separately in this category.'},
+    {cat:'local', y:1846, m:2, approx:true, title:'Mass exodus from Nauvoo begins', people:['Brigham Young'], desc:'Facing renewed hostility and the repeal of the city charter, the Saints begin crossing the Mississippi in February 1846 to leave Illinois, travelling west under Brigham Young\'s leadership.', sources:[
+      {text:'Brigham Young, Joseph Smith Papers biography — documents his leadership of the church following JS\'s death and the westward migration', url:'https://www.josephsmithpapers.org/person/brigham-young'}
+    ], researchNotes:'This event falls outside the Joseph Smith Papers\' scope, which is organised around JS\'s own documents and largely ends at his death in June 1844, so only a biographical record is cited. The primary records for the exodus — Brigham Young\'s office papers, the Camp of Israel journals, and the trail records — sit in other collections.\n\nDate made specific to February 1846, when the first companies crossed the Mississippi, where the entry previously carried only the year.'}
+  ];
+
+  var STORAGE_KEY = 'js_timeline_data_v1';
+  var ADMIN_SESSION_KEY = 'js_timeline_admin_v1';
+
+  // NOTE ON SECURITY: this is a client-side-only file with no server, so this
+  // is a courtesy lock (keeps casual visitors from editing), not real access
+  // control — anyone who opens the page source can find this constant. Change
+  // it to whatever you like before sharing the file with your researchers.
+  var ADMIN_PASSWORD = 'smith1844';
+
+  // ---- Issue reporting ----
+  // SET THIS before sharing the file. Submitting a report opens the visitor's
+  // own email program with the message pre-filled addressed here; nothing is
+  // transmitted by the page itself.
+  // Worth considering: an address placed in a publicly shared HTML file can be
+  // harvested by spam scrapers, so a dedicated or alias address is safer than a
+  // primary personal one.
+  var REPORT_EMAIL = 'you@example.com';
+
+  // Each category carries two labels: `short` goes in the email subject line so
+  // reports stay scannable and sortable in an inbox, while `label` is the fuller
+  // description shown in the dropdown.
+  var FLAG_CATEGORIES = [
+    {short:'Date questioned',    label:'Date questioned — event or recorded date looks wrong'},
+    {short:'Source problem',     label:'Source problem — missing, broken link, or does not support the claim'},
+    {short:'Factual error',      label:'Factual error — in the title or notes'},
+    {short:'Neutrality concern', label:'Neutrality concern — directive or judging language'},
+    {short:'Missing context',    label:'Missing context — something important omitted'},
+    {short:'Duplicate entry',    label:'Duplicate entry'},
+    {short:'Technical problem',  label:'Display or technical problem'},
+    {short:'Other',              label:'Other'}
+  ];
+
+  // Migrates old single source/sourceUrl fields into the newer sources[] array,
+  // so existing saved boards and JSON exports keep working.
+  function normalizeEntry(e){
+    if(!e.sources){
+      e.sources = [];
+      if(e.source || e.sourceUrl){
+        e.sources.push({text: e.source || '', url: e.sourceUrl || ''});
+      }
+    }
+    delete e.source;
+    delete e.sourceUrl;
+    if(!Array.isArray(e.themes)) e.themes = [];
+    return e;
+  }
+
+  // Short, stable reference codes (ID-001, ID-002, ...) for pointing at a
+  // specific data point without spelling out its title — handy for a future
+  // backend, but also just for talking about "ID-014" instead of a long name.
+  // Numbers are never reused, even if that entry is later deleted, so a
+  // reference stays meaningful once it's been assigned.
+  function formatRefId(n){
+    var s = String(n);
+    while(s.length < 3) s = '0' + s;
+    return 'ID-' + s;
+  }
+  function ensureRefIds(st){
+    if(typeof st.nextRefId !== 'number' || isNaN(st.nextRefId)) st.nextRefId = 1;
+    var maxSeen = 0;
+    st.entries.forEach(function(e){
+      if(e.refId){
+        var m = /ID-(\d+)/.exec(e.refId);
+        if(m){ var n = parseInt(m[1], 10); if(n > maxSeen) maxSeen = n; }
+      }
+    });
+    if(st.nextRefId <= maxSeen) st.nextRefId = maxSeen + 1;
+    st.entries.forEach(function(e){
+      if(!e.refId){
+        e.refId = formatRefId(st.nextRefId);
+        st.nextRefId++;
+      }
+    });
+    return st;
+  }
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && parsed.categories && parsed.entries){
+          parsed.entries.forEach(normalizeEntry);
+          ensureRefIds(parsed);
+          // Back-compat: boards saved before themes existed won't have this key.
+          if(!Array.isArray(parsed.themes)) parsed.themes = DEFAULT_THEMES.slice();
+          return parsed;
+        }
+      }
+    }catch(e){}
+    // Build fresh from defaults
+    var entries = DEFAULT_ENTRIES.map(function(e, i){
+      return normalizeEntry(Object.assign({id:'seed-'+i}, e));
+    });
+    return ensureRefIds({categories: DEFAULT_CATEGORIES.slice(), themes: DEFAULT_THEMES.slice(), entries: entries});
+  }
+
+  var state = loadState();
+  var uiState = {
+    collapsedCats: {},
+    search: '',
+    person: '',
+    theme: '',
+    zoom: 80,
+    selectedId: null,
+    nearbyMonths: 2,
+    threadOn: false,
+    positionBy: 'event',
+    // Visitor's own on-screen column order — anyone can drag columns to
+    // rearrange them for their own navigation. Intentionally NOT saved to
+    // board state/localStorage, so it resets to the default order on refresh.
+    colOrder: null
+  };
+  var dragCatId = null;
+  var isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1');
+
+  /* ============================= FOCUS WORKSPACE ============================= */
+  // A personal, local workspace — pin entries here to build your own thread or
+  // theory. This never touches the shared board data, so it's available to
+  // every visitor, admin or not. Stored separately from the board's dataset.
+
+  var FOCUS_STORAGE_KEY = 'js_timeline_focus_v1';
+  var dragFocusEntryId = null;
+
+  function loadFocusState(){
+    try{
+      var raw = localStorage.getItem(FOCUS_STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && Array.isArray(parsed.ids)){
+          return {
+            title: parsed.title || '',
+            notes: parsed.notes || '',
+            ids: parsed.ids,
+            open: !!parsed.open
+          };
+        }
+      }
+    }catch(e){}
+    return {title:'', notes:'', ids:[], open:false};
+  }
+  var focusState = loadFocusState();
+  function saveFocusState(){
+    localStorage.setItem(FOCUS_STORAGE_KEY, JSON.stringify(focusState));
+  }
+
+  function isPinned(id){ return focusState.ids.indexOf(id) !== -1; }
+
+  function addToFocus(id){
+    if(!isPinned(id)){
+      focusState.ids.push(id);
+      saveFocusState();
+      renderFocusList();
+      render();
+    }
+  }
+  function removeFromFocus(id){
+    var i = focusState.ids.indexOf(id);
+    if(i !== -1){
+      focusState.ids.splice(i, 1);
+      saveFocusState();
+      renderFocusList();
+      render();
+    }
+  }
+  function toggleFocus(id){ isPinned(id) ? removeFromFocus(id) : addToFocus(id); }
+  function clearFocus(){
+    if(!focusState.ids.length) return;
+    if(confirm('Clear all pinned entries from your Focus panel? This only clears your workspace — no board data is affected.')){
+      focusState.ids = [];
+      saveFocusState();
+      renderFocusList();
+      render();
+    }
+  }
+
+  function sortedFocusEntries(){
+    return focusState.ids
+      .map(function(id){ return state.entries.find(function(e){ return e.id === id; }); })
+      .filter(Boolean)
+      .sort(function(a,b){
+        var fa = fracYear(a), fb = fracYear(b);
+        if(fa !== fb) return fa - fb;
+        return a.title.localeCompare(b.title);
+      });
+  }
+
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function nextColor(){
+    var used = state.categories.map(function(c){return c.color;});
+    for(var i=0;i<DEFAULT_PALETTE.length;i++){
+      if(used.indexOf(DEFAULT_PALETTE[i]) === -1) return DEFAULT_PALETTE[i];
+    }
+    return DEFAULT_PALETTE[used.length % DEFAULT_PALETTE.length];
+  }
+
+  function nextThemeColor(){
+    var used = state.themes.map(function(t){return t.color;});
+    for(var i=0;i<DEFAULT_PALETTE.length;i++){
+      if(used.indexOf(DEFAULT_PALETTE[i]) === -1) return DEFAULT_PALETTE[i];
+    }
+    return DEFAULT_PALETTE[used.length % DEFAULT_PALETTE.length];
+  }
+
+  function genId(prefix){
+    return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+  }
+
+  function catById(id){
+    for(var i=0;i<state.categories.length;i++) if(state.categories[i].id===id) return state.categories[i];
+    return null;
+  }
+
+  // Display order for columns: the visitor's own drag-to-reorder (uiState.colOrder)
+  // takes precedence over the board's underlying category order, but only for
+  // categories it still knows about — anything newly added/removed by an admin
+  // since the visitor last dragged just falls back to the board's own order.
+  function orderedCategories(){
+    if(!uiState.colOrder) return state.categories.slice();
+    var remaining = {};
+    state.categories.forEach(function(c){ remaining[c.id] = c; });
+    var result = [];
+    uiState.colOrder.forEach(function(id){
+      if(remaining[id]){ result.push(remaining[id]); delete remaining[id]; }
+    });
+    state.categories.forEach(function(c){
+      if(remaining[c.id]) result.push(c);
+    });
+    return result;
+  }
+
+  function themeById(id){
+    for(var i=0;i<(state.themes||[]).length;i++) if(state.themes[i].id===id) return state.themes[i];
+    return null;
+  }
+
+  // Relative luminance (WCAG), used to decide what to print on a category color.
+  function relLuminance(hex){
+    var h = String(hex || '').replace('#','');
+    if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if(!/^[0-9a-f]{6}$/i.test(h)) return 0;
+    function chan(v){
+      v = parseInt(v, 16) / 255;
+      return v <= 0.03928 ? v/12.92 : Math.pow((v + 0.055)/1.055, 2.4);
+    }
+    return 0.2126*chan(h.slice(0,2)) + 0.7152*chan(h.slice(2,4)) + 0.0722*chan(h.slice(4,6));
+  }
+
+  // Cream on dark colors, ink on light ones. The five default categories are all
+  // dark enough for cream, but category colors are editable via a color picker,
+  // so a pale choice must not leave the title unreadable. The 0.197 threshold is
+  // where cream and ink give equal contrast against the same background.
+  function readableOn(hex){
+    return relLuminance(hex) > 0.197 ? '#2A2420' : '#F3ECDA';
+  }
+
+  function fracYear(e){
+    var y = e.y;
+    var m = e.m ? (e.m-1)/12 : 0.5;
+    var d = e.d ? (e.d-1)/365 : 0;
+    return y + m + d;
+  }
+
+  function dateLabel(e){
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var s = '';
+    if(e.d && e.m) s = months[e.m-1] + ' ' + e.d + ', ' + e.y;
+    else if(e.m) s = months[e.m-1] + ' ' + e.y;
+    else s = String(e.y);
+    if(e.approx) s = 'c. ' + s;
+    return s;
+  }
+
+  // A "recorded date" is when an account was first written down or told —
+  // distinct from the date of the event itself. Many recollections
+  // (e.g. priesthood restoration accounts) were set down years after the fact.
+  function hasRecordedDate(e){ return e.recordedY !== undefined && e.recordedY !== null; }
+  function recordedFracYear(e){ return fracYear({y: e.recordedY, m: e.recordedM, d: e.recordedD}); }
+  function recordedDateLabel(e){ return dateLabel({y: e.recordedY, m: e.recordedM, d: e.recordedD, approx: e.recordedApprox}); }
+  function isRetrospective(e){ return hasRecordedDate(e) && (recordedFracYear(e) - fracYear(e) > 0.4); }
+  // Which date actually places the card on the board, honoring the "Position by" toggle.
+  function positionFracYear(e){
+    if(uiState.positionBy === 'recorded' && hasRecordedDate(e)) return recordedFracYear(e);
+    return fracYear(e);
+  }
+
+  /* ============================= RENDER ============================= */
+
+  var boardInner = document.getElementById('board-inner');
+  var rail = document.getElementById('rail');
+  var PADDING_TOP = 40;
+  var PADDING_BOTTOM = 60;
+
+  function minMaxYear(){
+    var min = Infinity, max = -Infinity;
+    state.entries.forEach(function(e){
+      if(e.y < min) min = e.y;
+      if(e.y > max) max = e.y;
+      if(hasRecordedDate(e)){
+        if(e.recordedY < min) min = e.recordedY;
+        if(e.recordedY > max) max = e.recordedY;
+      }
+    });
+    if(!isFinite(min)){ min = 1800; max = 1850; }
+    return {min: Math.floor(min)-1, max: Math.ceil(max)+1};
+  }
+
+  function yFor(fy, bounds, pxPerYear){
+    return PADDING_TOP + (fy - bounds.min) * pxPerYear;
+  }
+
+  function totalHeight(bounds, pxPerYear){
+    return PADDING_TOP + (bounds.max - bounds.min) * pxPerYear + PADDING_BOTTOM;
+  }
+
+  function matchesFilters(e){
+    var s = uiState.search.trim().toLowerCase();
+    if(s){
+      var sourceText = (e.sources||[]).map(function(s){ return s.text+' '+s.url; }).join(' ');
+      var hay = (e.title+' '+(e.desc||'')+' '+(e.researchNotes||'')+' '+(e.people||[]).join(' ')+' '+sourceText).toLowerCase();
+      if(hay.indexOf(s) === -1) return false;
+    }
+    if(uiState.person){
+      if(!(e.people||[]).includes(uiState.person)) return false;
+    }
+    if(uiState.theme){
+      if(!(e.themes||[]).includes(uiState.theme)) return false;
+    }
+    return true;
+  }
+
+  function allPeople(){
+    var set = {};
+    state.entries.forEach(function(e){ (e.people||[]).forEach(function(p){ set[p]=true; }); });
+    return Object.keys(set).sort();
+  }
+
+  function render(){
+    var bounds = minMaxYear();
+    var pxPerYear = uiState.zoom;
+    var th = totalHeight(bounds, pxPerYear);
+
+    // Rail
+    rail.innerHTML = '';
+    rail.style.height = th + 'px';
+    for(var yr = bounds.min; yr <= bounds.max; yr++){
+      var major = (yr % 5 === 0);
+      var mark = document.createElement('div');
+      mark.className = 'year-mark' + (major ? ' major' : '');
+      mark.style.top = yFor(yr, bounds, pxPerYear) + 'px';
+      mark.textContent = (major || pxPerYear >= 60) ? yr : (yr % 5 === 0 ? yr : '');
+      if(!major && pxPerYear < 55) mark.textContent = '';
+      rail.appendChild(mark);
+    }
+
+    // Clear old columns + gridlines + svg
+    Array.prototype.slice.call(boardInner.querySelectorAll('.column, .gridline, #thread-svg')).forEach(function(n){ n.remove(); });
+
+    // Every category gets a column; collapsing narrows one to a 40px strip
+    // rather than removing it, so nothing ever disappears from the board.
+    var visibleCats = orderedCategories();
+    var totalColW = visibleCats.reduce(function(sum, c){ return sum + (uiState.collapsedCats[c.id] ? 40 : 258); }, 0);
+
+    // Gridlines (behind columns, spans full width)
+    for(var yr2 = bounds.min; yr2 <= bounds.max; yr2++){
+      var g = document.createElement('div');
+      g.className = 'gridline' + (yr2 % 5 === 0 ? ' major' : '');
+      g.style.top = yFor(yr2, bounds, pxPerYear) + 'px';
+      g.style.width = totalColW + 'px';
+      boardInner.appendChild(g);
+    }
+
+    // Columns
+    visibleCats.forEach(function(cat){
+      var isCollapsed = !!uiState.collapsedCats[cat.id];
+      var col = document.createElement('div');
+      col.className = 'column' + (isCollapsed ? ' collapsed' : '');
+      col.style.height = th + 'px';
+      col.style.setProperty('--cat-color', cat.color);
+      col.dataset.catId = cat.id;
+
+      var header = document.createElement('div');
+      header.className = 'column-header';
+      header.style.setProperty('--cat-color', cat.color);
+      // Collapsed headers hold rotated (writing-mode: vertical-rl) text, and a
+      // few browsers fail to paint that rotated text at all when its container
+      // is also natively draggable — so dragging is only enabled while expanded.
+      // (You can still reorder a collapsed column: expand it, drag, re-collapse.)
+      header.draggable = !isCollapsed;
+      var catEntries = state.entries.filter(function(e){ return e.cat === cat.id; });
+      header.innerHTML =
+        '<div class="name">'+(isCollapsed ? '' : '<span class="drag-handle" title="Drag to reorder — resets on refresh">&#8942;&#8942;</span>')+'<span class="cat-label">'+escapeHtml(cat.name)+'</span></div>'+
+        '<div class="meta-row">'+
+        '<span class="col-controls">'+
+          '<button class="collapse-btn" data-collapse="'+cat.id+'" title="'+(isCollapsed?'Expand':'Collapse')+'">'+(isCollapsed?'&#9656;':'&#9666;')+'</button>'+
+          (isAdmin ? '<button class="subtle add-in-col" data-cat="'+cat.id+'">+ add</button>' : '')+
+        '</span></div>';
+      col.appendChild(header);
+
+      if(isCollapsed){
+        header.addEventListener('click', function(ev){
+          if(ev.target.closest('.collapse-btn')) return;
+          uiState.collapsedCats[cat.id] = false;
+          render();
+        });
+      }
+
+      header.querySelector('.collapse-btn').addEventListener('click', function(ev){
+        ev.stopPropagation();
+        var id = ev.currentTarget.dataset.collapse;
+        uiState.collapsedCats[id] = !uiState.collapsedCats[id];
+        render();
+      });
+
+      if(catEntries.length === 0){
+        var msg = document.createElement('div');
+        msg.className = 'empty-col-msg';
+        msg.textContent = 'No entries yet.';
+        col.appendChild(msg);
+      }
+
+      catEntries.forEach(function(e){
+        var card = document.createElement('div');
+        card.className = 'entry-card' + (isPinned(e.id) ? ' in-focus' : '');
+        card.dataset.id = e.id;
+        card.draggable = true;
+        var fy = positionFracYear(e);
+        card.style.top = yFor(fy, bounds, pxPerYear) + 'px';
+        card.style.setProperty('--cat-color', cat.color);
+        if(!matchesFilters(e)) card.classList.add('dimmed');
+        if(e.id === uiState.selectedId) card.classList.add('selected');
+        var retroBadge = isRetrospective(e) ? '<span class="retro-mark" title="Recorded later, as a retrospective account — see details">R</span>' : '';
+        var dateShown = (uiState.positionBy === 'recorded' && hasRecordedDate(e)) ? ('Recorded '+recordedDateLabel(e)) : dateLabel(e);
+        var pinned = isPinned(e.id);
+        card.innerHTML = '<button type="button" class="pin-btn'+(pinned?' pinned':'')+'" data-id="'+e.id+'" title="'+(pinned?'Remove from Focus':'Add to Focus')+'">'+(pinned?'&#10003;':'&#9758;')+'</button>'+
+          '<div class="date-line">'+dateShown+retroBadge+'</div><div class="title-line">'+escapeHtml(e.title)+'</div>';
+        card.addEventListener('click', function(ev){
+          if(ev.target.closest('.pin-btn')) return;
+          var id = ev.currentTarget.dataset.id;
+          openDetail(id);
+        });
+        card.querySelector('.pin-btn').addEventListener('click', function(ev){
+          ev.stopPropagation();
+          toggleFocus(ev.currentTarget.dataset.id);
+        });
+        card.addEventListener('dragstart', function(ev){
+          dragFocusEntryId = e.id;
+          ev.dataTransfer.effectAllowed = 'copy';
+          try{ ev.dataTransfer.setData('text/plain', e.id); }catch(err){}
+        });
+        card.addEventListener('dragend', function(){
+          dragFocusEntryId = null;
+          var panel = document.getElementById('focusPanel');
+          if(panel) panel.classList.remove('drag-over');
+        });
+        col.appendChild(card);
+      });
+
+      // Drag-and-drop reordering — a viewing convenience open to every visitor.
+      // It only ever touches uiState.colOrder (never state.categories), so it's
+      // never saved and resets to the board's default order on refresh.
+      header.addEventListener('dragstart', function(ev){
+        dragCatId = cat.id;
+        col.classList.add('dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        try{ ev.dataTransfer.setData('text/plain', cat.id); }catch(e){}
+      });
+      header.addEventListener('dragend', function(){
+        col.classList.remove('dragging');
+        document.querySelectorAll('.column.drag-over').forEach(function(n){ n.classList.remove('drag-over'); });
+      });
+      col.addEventListener('dragover', function(ev){
+        if(!dragCatId || dragCatId === cat.id) return;
+        ev.preventDefault();
+        col.classList.add('drag-over');
+      });
+      col.addEventListener('dragleave', function(){
+        col.classList.remove('drag-over');
+      });
+      col.addEventListener('drop', function(ev){
+        ev.preventDefault();
+        col.classList.remove('drag-over');
+        if(!dragCatId || dragCatId === cat.id) return;
+        var current = orderedCategories().map(function(c){ return c.id; });
+        var fromIdx = current.indexOf(dragCatId);
+        var toIdx = current.indexOf(cat.id);
+        if(fromIdx === -1 || toIdx === -1) return;
+        var moved = current.splice(fromIdx, 1)[0];
+        current.splice(toIdx, 0, moved);
+        uiState.colOrder = current;
+        dragCatId = null;
+        render();
+      });
+
+      boardInner.appendChild(col);
+    });
+
+    applyCardStagger();
+
+    // SVG thread overlay
+    var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('id','thread-svg');
+    svg.setAttribute('width', (96+totalColW));
+    svg.setAttribute('height', th);
+    boardInner.insertBefore(svg, boardInner.firstChild.nextSibling);
+
+    drawThreads(bounds, pxPerYear);
+    renderPersonFilter();
+    renderThemeFilter();
+  }
+
+  // Cards close enough in time to visually overlap get cascaded to the right
+  // (like a fanned stack of index cards) so the ones underneath stay visible.
+  // Runs fresh on every render, so it self-corrects at any zoom level: cards
+  // that no longer overlap snap back to their normal, unstaggered position.
+  function applyCardStagger(){
+    var STAGGER_PX = 16;
+    var MAX_DEPTH = 5;
+    document.querySelectorAll('.column').forEach(function(col){
+      if(col.classList.contains('collapsed')) return;
+      var cards = Array.prototype.slice.call(col.querySelectorAll('.entry-card'));
+      if(cards.length < 2) return;
+      cards.sort(function(a,b){ return parseFloat(a.style.top) - parseFloat(b.style.top); });
+      var clusterBottom = -Infinity;
+      var depth = 0;
+      cards.forEach(function(card){
+        var top = parseFloat(card.style.top);
+        var height = card.offsetHeight;
+        depth = (top < clusterBottom) ? Math.min(depth + 1, MAX_DEPTH) : 0;
+        var z = 200 - depth;
+        if(card.classList.contains('selected') || card.classList.contains('related')) z += 1000;
+        card.style.left = (10 + depth * STAGGER_PX) + 'px';
+        card.style.zIndex = String(z);
+        clusterBottom = Math.max(clusterBottom, top + height);
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderPersonFilter(){
+    var sel = document.getElementById('personFilter');
+    var cur = uiState.person;
+    sel.innerHTML = '<option value="">All people</option>';
+    allPeople().forEach(function(p){
+      var opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      if(p === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderThemeFilter(){
+    var sel = document.getElementById('themeFilter');
+    if(!sel) return;
+    var cur = uiState.theme;
+    sel.innerHTML = '<option value="">All themes</option>';
+    (state.themes||[]).forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = t.name;
+      if(t.id === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // If the previously selected theme was deleted, fall back to "All themes".
+    if(cur && !themeById(cur)){
+      uiState.theme = '';
+      sel.value = '';
+    }
+  }
+
+  /* ---------- Connection threads (signature element) ---------- */
+  function computeRelated(e, months){
+    var m = (months !== undefined) ? months : uiState.nearbyMonths;
+    var windowYears = m / 12;
+    var selFy = fracYear(e);
+    return state.entries.filter(function(x){
+      return x.id !== e.id && Math.abs(fracYear(x) - selFy) <= windowYears;
+    }).sort(function(a,b){ return fracYear(a) - fracYear(b); });
+  }
+
+  function cardCenter(id){
+    var card = boardInner.querySelector('.entry-card[data-id="'+id+'"]');
+    if(!card) return null;
+    var col = card.closest('.column');
+    return {
+      x: card.offsetLeft + card.offsetWidth/2 + col.offsetLeft,
+      y: card.offsetTop + card.offsetHeight/2
+    };
+  }
+
+  // The "thread": a single line running through every visible entry in
+  // chronological order (ties broken alphabetically), crossing columns as needed.
+  function buildMasterThreadMarkup(){
+    if(!uiState.threadOn) return '';
+    var visibleCatIds = {};
+    state.categories.forEach(function(c){
+      if(!uiState.collapsedCats[c.id]) visibleCatIds[c.id] = true;
+    });
+    var ordered = state.entries.filter(function(e){
+      return visibleCatIds[e.cat] && matchesFilters(e);
+    }).sort(function(a,b){
+      var fa = positionFracYear(a), fb = positionFracYear(b);
+      if(fa !== fb) return fa - fb;
+      return a.title.localeCompare(b.title);
+    });
+
+    var pts = [];
+    ordered.forEach(function(e){
+      var c = cardCenter(e.id);
+      if(c) pts.push(c);
+    });
+    if(pts.length < 2) return '';
+
+    var d = 'M ' + pts[0].x + ' ' + pts[0].y;
+    for(var i=1;i<pts.length;i++){ d += ' L ' + pts[i].x + ' ' + pts[i].y; }
+    var markup = '<path d="'+d+'" stroke="#8c2e22" stroke-opacity="0.6" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    pts.forEach(function(p){
+      markup += '<circle cx="'+p.x+'" cy="'+p.y+'" r="2.2" fill="#8c2e22" fill-opacity="0.78"/>';
+    });
+    return markup;
+  }
+
+  // The dashed gold "nearby in time" thread radiating from the currently selected entry.
+  function buildSelectionThreadMarkup(){
+    if(!uiState.selectedId) return '';
+    var sel = state.entries.find(function(e){ return e.id === uiState.selectedId; });
+    if(!sel) return '';
+    var sc = cardCenter(sel.id);
+    if(!sc) return '';
+    var related = computeRelated(sel);
+
+    var paths = [];
+    related.forEach(function(e){
+      var ec = cardCenter(e.id);
+      if(!ec) return;
+      var card = boardInner.querySelector('.entry-card[data-id="'+e.id+'"]');
+      if(card) card.classList.add('related');
+      var midx = (sc.x+ec.x)/2;
+      var d = 'M '+sc.x+' '+sc.y+' Q '+midx+' '+((sc.y+ec.y)/2)+' '+ec.x+' '+ec.y;
+      paths.push('<path d="'+d+'" stroke="#a8862f" stroke-opacity="0.55" stroke-width="1.6" fill="none" stroke-dasharray="1 5" stroke-linecap="round"/>');
+      paths.push('<circle cx="'+ec.x+'" cy="'+ec.y+'" r="3" fill="#a8862f" fill-opacity="0.8"/>');
+    });
+    paths.push('<circle cx="'+sc.x+'" cy="'+sc.y+'" r="4.5" fill="#a8862f"/>');
+    return paths.join('');
+  }
+
+  function drawThreads(bounds, pxPerYear){
+    var svg = document.getElementById('thread-svg');
+    if(!svg) return;
+    document.querySelectorAll('.entry-card.related').forEach(function(n){ n.classList.remove('related'); });
+    var masterMarkup = buildMasterThreadMarkup();
+    var selectionMarkup = buildSelectionThreadMarkup();
+    svg.innerHTML = masterMarkup + selectionMarkup;
+  }
+
+  /* ============================= DETAIL PANEL ============================= */
+
+  // Built in two places — initial render and the click handler — so it lives in
+  // one function to keep the two identical. The glyph gets its own span so it can
+  // be sized and coloured apart from the label, matching the header's Focus pill.
+  function focusPinLabel(pinned){
+    return pinned
+      ? '<span class="fi-hand">&#10003;</span><span>In Focus</span>'
+      : '<span class="fi-hand">&#9758;</span><span>Add to Focus</span>';
+  }
+
+  function relatedListHTML(related){
+    if(!related.length) return '<div class="val" style="color:var(--ink-faint); font-style:italic;">Nothing else nearby yet.</div>';
+    return related.map(function(r){
+      var rc = catById(r.cat);
+      return '<div class="related-item" data-id="'+r.id+'" style="--cat-color:'+rc.color+'; border-left-color:'+rc.color+'">'+
+        '<div class="rd">'+dateLabel(r)+' &middot; '+escapeHtml(rc.name)+'</div>'+
+        '<div class="rt">'+escapeHtml(r.title)+'</div></div>';
+    }).join('');
+  }
+
+  function openDetail(id){
+    uiState.selectedId = id;
+    render();
+    var e = state.entries.find(function(x){ return x.id===id; });
+    if(!e) return;
+    var cat = catById(e.cat);
+
+    var months = uiState.nearbyMonths;
+    var related = computeRelated(e, months);
+    var autoExpandedFrom = null;
+    if(related.length === 0){
+      for(var m = months + 1; m <= 18; m++){
+        var wider = computeRelated(e, m);
+        if(wider.length > 0){
+          related = wider;
+          autoExpandedFrom = months;
+          months = m;
+          uiState.nearbyMonths = m;
+          break;
+        }
+      }
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML =
+      '<div class="panel panel-relative" style="--cat-color:'+escapeHtml(cat.color)+'; --titleblock-fg:'+readableOn(cat.color)+'">'+
+        '<button class="close-x">&times;</button>'+
+        '<div class="panel-titleblock">'+
+          '<div class="cat-tag">'+escapeHtml(cat.name)+'</div>'+
+          '<h2>'+escapeHtml(e.title)+'</h2>'+
+        '</div>'+
+        '<div class="field"><label>Event date</label><div class="val">'+dateLabel(e)+'</div></div>'+
+        (hasRecordedDate(e) ? '<div class="field"><label>First recorded</label><div class="val">'+recordedDateLabel(e)+
+          (isRetrospective(e) ? ' <span class="retro-note">&#9888; retrospective account, recorded after the event it describes</span>' : '')+
+          '</div></div>' : '')+
+        (e.desc ? '<div class="field"><label>Notes</label><div class="val">'+escapeHtml(e.desc)+'</div></div>' : '')+
+        (e.sources && e.sources.length ? '<div class="field"><label>Sources / citations</label><div class="sources-list">'+
+          e.sources.map(function(s){
+            return '<div class="source-item">'+
+              (s.text ? escapeHtml(s.text) : '<span style="color:var(--ink-faint); font-style:italic;">Untitled source</span>')+
+              (s.url ? ' <a class="source-link" href="'+escapeHtml(s.url)+'" target="_blank" rel="noopener noreferrer">View source &#8599;</a>' : '')+
+              '</div>';
+          }).join('')+
+          '</div></div>' : '')+
+        ((e.people&&e.people.length) ? '<div class="field"><label>People</label><div class="people-tags">'+e.people.map(function(p){return '<span class="ptag" data-p="'+escapeHtml(p)+'">'+escapeHtml(p)+'</span>';}).join('')+'</div></div>' : '')+
+        ((e.themes&&e.themes.length) ? '<div class="field"><label>Themes</label><div class="people-tags">'+e.themes.map(function(tid){
+            var t = themeById(tid);
+            if(!t) return '';
+            return '<span class="theme-tag" data-theme="'+t.id+'"><span class="dot" style="background:'+t.color+'"></span>'+escapeHtml(t.name)+'</span>';
+          }).join('')+'</div></div>' : '')+
+        '<div class="actions">'+
+          '<button class="ghost focus-pin-action'+(isPinned(e.id)?' pinned':'')+'" id="focusPinBtn">'+focusPinLabel(isPinned(e.id))+'</button>'+
+          (isAdmin ? '<button id="editEntryBtn">Edit</button>'+
+          '<button class="ghost" id="deleteEntryBtn">Delete</button>' : '')+
+        '</div>'+
+        // Marks the shift from describing this entry to navigating to others.
+        '<hr class="panel-rule">'+
+        '<div class="field" style="margin-top:0;">'+
+          '<label>Nearby in time <span id="nearbyDesc">(within '+months+' month'+(months===1?'':'s')+', other categories)</span></label>'+
+          (autoExpandedFrom !== null ? '<div class="auto-expand-note" id="autoExpandNote">Widened automatically from '+autoExpandedFrom+' month'+(autoExpandedFrom===1?'':'s')+' — nothing else was that close.</div>' : '<div class="auto-expand-note" id="autoExpandNote" style="display:none;"></div>')+
+          '<div class="nearby-controls">'+
+            '<input type="range" id="nearbyRange" min="1" max="18" step="1" value="'+months+'">'+
+            '<input type="number" id="nearbyNumber" min="1" max="18" value="'+months+'">'+
+            '<span class="nearby-unit">mo</span>'+
+          '</div>'+
+          '<div class="related-list" id="relatedList">'+relatedListHTML(related)+'</div>'+
+        '</div>'+
+        (e.researchNotes ? '<details class="notes-details">'+
+          '<summary>Additional Notes</summary>'+
+          '<div class="notes-details-body">'+escapeHtml(e.researchNotes)+'</div>'+
+        '</details>' : '')+
+        '<div class="entry-refid-bar">'+
+          '<button type="button" class="report-flag-btn" id="reportEntryBtn" title="Report an issue with this entry">&#9873; Report</button>'+
+          '<span class="entry-refid">'+escapeHtml(e.refId||'')+'</span>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function attachRelatedClicks(){
+      overlay.querySelectorAll('.related-item').forEach(function(item){
+        item.addEventListener('click', function(){
+          var id2 = item.dataset.id;
+          closeOverlay(overlay, false);
+          openDetail(id2);
+        });
+      });
+    }
+    attachRelatedClicks();
+
+    function applyNearbyMonths(val){
+      val = Math.max(1, Math.min(18, parseInt(val,10) || 1));
+      uiState.nearbyMonths = val;
+      overlay.querySelector('#nearbyRange').value = val;
+      overlay.querySelector('#nearbyNumber').value = val;
+      overlay.querySelector('#nearbyDesc').textContent = '(within '+val+' month'+(val===1?'':'s')+', other categories)';
+      var noteEl = overlay.querySelector('#autoExpandNote');
+      if(noteEl){ noteEl.style.display = 'none'; noteEl.textContent = ''; }
+      var freshRelated = computeRelated(e);
+      var listEl = overlay.querySelector('#relatedList');
+      listEl.innerHTML = relatedListHTML(freshRelated);
+      attachRelatedClicks();
+      render();
+    }
+    overlay.querySelector('#nearbyRange').addEventListener('input', function(ev){ applyNearbyMonths(ev.target.value); });
+    overlay.querySelector('#nearbyNumber').addEventListener('input', function(ev){ applyNearbyMonths(ev.target.value); });
+
+    overlay.addEventListener('click', function(ev){ if(ev.target === overlay) closeOverlay(overlay, true); });
+    overlay.querySelector('.close-x').addEventListener('click', function(){ closeOverlay(overlay, true); });
+    overlay.querySelectorAll('.ptag').forEach(function(tag){
+      tag.addEventListener('click', function(){
+        uiState.person = tag.dataset.p;
+        document.getElementById('personFilter').value = uiState.person;
+        closeOverlay(overlay, true);
+        render();
+      });
+    });
+    overlay.querySelectorAll('.theme-tag').forEach(function(tag){
+      tag.addEventListener('click', function(){
+        uiState.theme = tag.dataset.theme;
+        document.getElementById('themeFilter').value = uiState.theme;
+        closeOverlay(overlay, true);
+        render();
+      });
+    });
+    overlay.querySelector('#reportEntryBtn').addEventListener('click', function(){
+      // Close the detail panel first, matching how the Edit button behaves, so
+      // the report modal isn't stacked on top of it. Passing `false` keeps the
+      // entry selected on the board underneath.
+      closeOverlay(overlay, false);
+      openReportModal(e);
+    });
+    overlay.querySelector('#focusPinBtn').addEventListener('click', function(ev){
+      toggleFocus(e.id);
+      var nowPinned = isPinned(e.id);
+      ev.currentTarget.classList.toggle('pinned', nowPinned);
+      ev.currentTarget.innerHTML = focusPinLabel(nowPinned);
+    });
+    if(isAdmin){
+      overlay.querySelector('#editEntryBtn').addEventListener('click', function(){
+        closeOverlay(overlay, false);
+        openEntryForm(e);
+      });
+      overlay.querySelector('#deleteEntryBtn').addEventListener('click', function(){
+        if(confirm('Delete "'+e.title+'"? This cannot be undone.')){
+          state.entries = state.entries.filter(function(x){ return x.id !== e.id; });
+          saveState();
+          if(isPinned(e.id)){
+            focusState.ids = focusState.ids.filter(function(id){ return id !== e.id; });
+            saveFocusState();
+            renderFocusList();
+          }
+          uiState.selectedId = null;
+          closeOverlay(overlay, true);
+          render();
+        }
+      });
+    }
+  }
+
+
+  function closeOverlay(overlay, deselect){
+    overlay.remove();
+    if(deselect){ uiState.selectedId = null; render(); }
+  }
+
+  /* ============================= ADD / EDIT ENTRY FORM ============================= */
+
+  function openEntryForm(existing){
+    if(!isAdmin) return;
+    var isEdit = !!existing;
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay center';
+    var catOptions = state.categories.map(function(c){
+      return '<option value="'+c.id+'" '+(existing&&existing.cat===c.id?'selected':'')+'>'+escapeHtml(c.name)+'</option>';
+    }).join('');
+
+    overlay.innerHTML =
+      '<div class="panel modal panel-relative" style="width:480px;">'+
+        '<button class="close-x">&times;</button>'+
+        '<h2>'+(isEdit?'Edit entry':'Add entry')+(isEdit && existing.refId ? ' <span class="form-refid">'+escapeHtml(existing.refId)+'</span>' : '')+'</h2>'+
+        '<div class="field"><label>Category</label><select id="f_cat">'+catOptions+'</select></div>'+
+        '<div class="field"><label>Title</label><input type="text" id="f_title" value="'+(existing?escapeHtml(existing.title):'')+'"></div>'+
+        '<div class="field" style="margin-bottom:4px;">'+
+          '<label style="margin-bottom:2px;">Event date</label>'+
+          '<div class="field-hint">When the event itself happened.</div>'+
+        '</div>'+
+        '<div class="row3">'+
+          '<div class="field"><label>Year</label><input type="text" id="f_year" value="'+(existing?existing.y:'')+'" placeholder="1830"></div>'+
+          '<div class="field"><label>Month (opt.)</label><input type="text" id="f_month" value="'+(existing&&existing.m?existing.m:'')+'" placeholder="1-12"></div>'+
+          '<div class="field"><label>Day (opt.)</label><input type="text" id="f_day" value="'+(existing&&existing.d?existing.d:'')+'" placeholder="1-31"></div>'+
+        '</div>'+
+        '<div class="field"><label><input type="checkbox" id="f_approx" '+(existing&&existing.approx?'checked':'')+' style="width:auto;"> Approximate date</label></div>'+
+        '<div class="field" style="margin-bottom:4px; margin-top:6px;">'+
+          '<label style="margin-bottom:2px;">First recorded &mdash; optional</label>'+
+          '<div class="field-hint">When the <em>earliest known</em> account of this event was written down or told — not the date of whichever source you cite below, which the citation itself should state. Leave blank when the event was recorded at the time it happened.<br>'+
+            '<span class="eg">e.g. the First Vision: event 1820, first recorded 1832.</span></div>'+
+        '</div>'+
+        '<div class="row3">'+
+          '<div class="field"><label>Year</label><input type="text" id="f_ryear" value="'+(existing&&existing.recordedY?existing.recordedY:'')+'" placeholder="e.g. 1838"></div>'+
+          '<div class="field"><label>Month (opt.)</label><input type="text" id="f_rmonth" value="'+(existing&&existing.recordedM?existing.recordedM:'')+'" placeholder="1-12"></div>'+
+          '<div class="field"><label>Day (opt.)</label><input type="text" id="f_rday" value="'+(existing&&existing.recordedD?existing.recordedD:'')+'" placeholder="1-31"></div>'+
+        '</div>'+
+        '<div class="field"><label><input type="checkbox" id="f_rapprox" '+(existing&&existing.recordedApprox?'checked':'')+' style="width:auto;"> Approximate recorded date</label></div>'+
+        '<div class="field"><label>People involved</label>'+
+          '<div class="tag-input" id="peopleTagInput">'+
+            '<div class="tag-chips" id="peopleChips"></div>'+
+            '<input type="text" id="peopleTextInput" placeholder="Type a name, press Enter or comma…" autocomplete="off">'+
+            '<div class="tag-suggestions" id="peopleSuggestions" style="display:none;"></div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="field"><label>Themes</label>'+
+          '<div class="theme-select-row" id="themeSelectRow"></div>'+
+        '</div>'+
+        '<div class="field"><label>Notes</label><textarea id="f_desc">'+(existing?escapeHtml(existing.desc||''):'')+'</textarea></div>'+
+        '<div class="field"><label>Sources / citations</label>'+
+          '<div id="sourceRows"></div>'+
+          '<button type="button" class="ghost" id="addSourceRowBtn" style="font-size:11.5px; padding:5px 10px;">+ Add another source</button>'+
+        '</div>'+
+        '<div class="field"><label>Additional Notes (optional)</label>'+
+          '<textarea id="f_researchnotes" placeholder="Provenance and context: when a source was written relative to the event, who wrote it, their relationship to Joseph Smith, whether other accounts agree or differ. State facts, not conclusions — let readers judge for themselves. Collapsed by default; for collaborators, not the main view.">'+(existing?escapeHtml(existing.researchNotes||''):'')+'</textarea>'+
+        '</div>'+
+        '<div class="actions">'+
+          '<button id="saveEntryBtn">'+(isEdit?'Save changes':'Add entry')+'</button>'+
+          '<button class="ghost" id="cancelEntryBtn">Cancel</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+
+    // People-involved tag input with autocomplete against everyone already used elsewhere
+    var peopleList = (existing && existing.people) ? existing.people.slice() : [];
+    var knownPeople = allPeople();
+    var peopleChipsEl = overlay.querySelector('#peopleChips');
+    var peopleTextInput = overlay.querySelector('#peopleTextInput');
+    var peopleSuggEl = overlay.querySelector('#peopleSuggestions');
+
+    function renderPeopleChips(){
+      peopleChipsEl.innerHTML = peopleList.map(function(p, i){
+        return '<span class="tag-chip">'+escapeHtml(p)+'<button type="button" class="tag-chip-remove" data-idx="'+i+'">&times;</button></span>';
+      }).join('');
+      peopleChipsEl.querySelectorAll('.tag-chip-remove').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          peopleList.splice(parseInt(btn.dataset.idx,10), 1);
+          renderPeopleChips();
+        });
+      });
+    }
+    renderPeopleChips();
+
+    function addPerson(name){
+      name = name.trim();
+      if(!name) return;
+      var already = peopleList.some(function(p){ return p.toLowerCase() === name.toLowerCase(); });
+      if(!already) peopleList.push(name);
+      peopleTextInput.value = '';
+      peopleSuggEl.style.display = 'none';
+      peopleSuggEl.innerHTML = '';
+      renderPeopleChips();
+      peopleTextInput.focus();
+    }
+
+    function updatePeopleSuggestions(){
+      var val = peopleTextInput.value.trim().toLowerCase();
+      if(!val){ peopleSuggEl.style.display = 'none'; peopleSuggEl.innerHTML=''; return; }
+      var matches = knownPeople.filter(function(p){
+        return p.toLowerCase().indexOf(val) !== -1 && !peopleList.some(function(existingP){ return existingP.toLowerCase()===p.toLowerCase(); });
+      }).slice(0, 6);
+      if(!matches.length){ peopleSuggEl.style.display = 'none'; peopleSuggEl.innerHTML=''; return; }
+      peopleSuggEl.innerHTML = matches.map(function(p){ return '<div class="tag-suggestion" data-name="'+escapeHtml(p)+'">'+escapeHtml(p)+'</div>'; }).join('');
+      peopleSuggEl.style.display = 'block';
+      peopleSuggEl.querySelectorAll('.tag-suggestion').forEach(function(item){
+        item.addEventListener('mousedown', function(ev){
+          ev.preventDefault(); // keep focus so blur doesn't hide the list first
+          addPerson(item.dataset.name);
+        });
+      });
+    }
+    peopleTextInput.addEventListener('input', updatePeopleSuggestions);
+    peopleTextInput.addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter' || ev.key === ','){
+        ev.preventDefault();
+        addPerson(peopleTextInput.value);
+      }else if(ev.key === 'Backspace' && peopleTextInput.value === '' && peopleList.length){
+        peopleList.pop();
+        renderPeopleChips();
+      }
+    });
+    peopleTextInput.addEventListener('blur', function(){
+      setTimeout(function(){ peopleSuggEl.style.display = 'none'; }, 120);
+    });
+
+    // Themes — toggle chips drawn from the curated list (managed separately
+    // via "Manage themes"); an entry can hold any number of them.
+    var entryThemes = (existing && existing.themes) ? existing.themes.slice() : [];
+    var themeSelectRowEl = overlay.querySelector('#themeSelectRow');
+    function renderThemeChips(){
+      if(!(state.themes||[]).length){
+        themeSelectRowEl.innerHTML = '<span class="theme-empty-note">No themes yet — add some via "Manage themes" in the toolbar.</span>';
+        return;
+      }
+      themeSelectRowEl.innerHTML = state.themes.map(function(t){
+        var sel = entryThemes.indexOf(t.id) !== -1;
+        return '<span class="theme-toggle-chip'+(sel?' selected':'')+'" data-id="'+t.id+'" style="--theme-color:'+t.color+'">'+
+          '<span class="dot" style="background:'+t.color+'"></span>'+escapeHtml(t.name)+'</span>';
+      }).join('');
+      themeSelectRowEl.querySelectorAll('.theme-toggle-chip').forEach(function(chip){
+        chip.addEventListener('click', function(){
+          var id = chip.dataset.id;
+          var i = entryThemes.indexOf(id);
+          if(i === -1) entryThemes.push(id); else entryThemes.splice(i, 1);
+          renderThemeChips();
+        });
+      });
+    }
+    renderThemeChips();
+
+    var sourceRowsEl = overlay.querySelector('#sourceRows');
+    function addSourceRow(text, url){
+      var row = document.createElement('div');
+      row.className = 'source-row';
+      row.innerHTML =
+        '<input type="text" class="src-text" placeholder="Citation text" value="'+escapeHtml(text||'')+'">'+
+        '<input type="text" class="src-url" placeholder="https://..." value="'+escapeHtml(url||'')+'">'+
+        '<button type="button" class="subtle remove-source-row" title="Remove this source">&times;</button>';
+      row.querySelector('.remove-source-row').addEventListener('click', function(){ row.remove(); });
+      sourceRowsEl.appendChild(row);
+    }
+    if(existing && existing.sources && existing.sources.length){
+      existing.sources.forEach(function(s){ addSourceRow(s.text, s.url); });
+    }else{
+      addSourceRow('', '');
+    }
+    overlay.querySelector('#addSourceRowBtn').addEventListener('click', function(){ addSourceRow('', ''); });
+
+    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
+    overlay.querySelector('#cancelEntryBtn').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+
+    overlay.querySelector('#saveEntryBtn').addEventListener('click', function(){
+      var year = parseInt(document.getElementById('f_year').value, 10);
+      var title = document.getElementById('f_title').value.trim();
+      if(!title || isNaN(year)){
+        alert('Please provide at least a title and a year.');
+        return;
+      }
+      var month = parseInt(document.getElementById('f_month').value, 10);
+      var day = parseInt(document.getElementById('f_day').value, 10);
+      var rYear = parseInt(document.getElementById('f_ryear').value, 10);
+      var rMonth = parseInt(document.getElementById('f_rmonth').value, 10);
+      var rDay = parseInt(document.getElementById('f_rday').value, 10);
+      var leftoverPerson = peopleTextInput.value.trim();
+      if(leftoverPerson && !peopleList.some(function(p){ return p.toLowerCase()===leftoverPerson.toLowerCase(); })){
+        peopleList.push(leftoverPerson);
+      }
+      var people = peopleList.slice();
+      var sources = [];
+      sourceRowsEl.querySelectorAll('.source-row').forEach(function(row){
+        var text = row.querySelector('.src-text').value.trim();
+        var url = row.querySelector('.src-url').value.trim();
+        if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+        if(text || url) sources.push({text: text, url: url});
+      });
+      if(typeof state.nextRefId !== 'number' || isNaN(state.nextRefId)) state.nextRefId = 1;
+      var entry = {
+        id: existing ? existing.id : genId('e'),
+        refId: existing ? existing.refId : formatRefId(state.nextRefId),
+        cat: document.getElementById('f_cat').value,
+        title: title,
+        y: year,
+        m: isNaN(month)? undefined : month,
+        d: isNaN(day)? undefined : day,
+        approx: document.getElementById('f_approx').checked,
+        recordedY: isNaN(rYear) ? undefined : rYear,
+        recordedM: isNaN(rMonth) ? undefined : rMonth,
+        recordedD: isNaN(rDay) ? undefined : rDay,
+        recordedApprox: document.getElementById('f_rapprox').checked,
+        people: people,
+        themes: entryThemes.slice(),
+        desc: document.getElementById('f_desc').value.trim(),
+        sources: sources,
+        researchNotes: document.getElementById('f_researchnotes').value.trim()
+      };
+      if(!existing) state.nextRefId++;
+      if(isEdit){
+        var idx = state.entries.findIndex(function(x){ return x.id===existing.id; });
+        state.entries[idx] = entry;
+      }else{
+        state.entries.push(entry);
+      }
+      saveState();
+      overlay.remove();
+      render();
+    });
+  }
+
+  /* ============================= MANAGE CATEGORIES ============================= */
+
+  function openManageCategories(){
+    if(!isAdmin) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay center';
+    overlay.innerHTML =
+      '<div class="panel modal panel-relative" style="width:460px;">'+
+        '<button class="close-x">&times;</button>'+
+        '<h2>Manage categories</h2>'+
+        '<div id="catRows"></div>'+
+        '<div class="actions"><button id="addCatBtn">+ Add category</button><button class="ghost" id="closeCatBtn">Done</button></div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function renderRows(){
+      var wrap = overlay.querySelector('#catRows');
+      wrap.innerHTML = '';
+      state.categories.forEach(function(cat){
+        var row = document.createElement('div');
+        row.className = 'cat-manage-row';
+        var count = state.entries.filter(function(e){return e.cat===cat.id;}).length;
+        row.innerHTML =
+          '<input type="color" value="'+cat.color+'" data-id="'+cat.id+'">'+
+          '<input type="text" value="'+escapeHtml(cat.name)+'" data-id="'+cat.id+'">'+
+          '<button class="subtle" data-del="'+cat.id+'" title="Delete category">Delete ('+count+')</button>';
+        wrap.appendChild(row);
+      });
+      wrap.querySelectorAll('input[type=color]').forEach(function(inp){
+        inp.addEventListener('input', function(){
+          catById(inp.dataset.id).color = inp.value;
+          saveState(); render();
+        });
+      });
+      wrap.querySelectorAll('input[type=text]').forEach(function(inp){
+        inp.addEventListener('change', function(){
+          catById(inp.dataset.id).name = inp.value.trim() || 'Untitled';
+          saveState(); render();
+        });
+      });
+      wrap.querySelectorAll('button[data-del]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = btn.dataset.del;
+          if(state.categories.length <= 1){ alert('Keep at least one category.'); return; }
+          var count = state.entries.filter(function(e){return e.cat===id;}).length;
+          var msg = count ? ('Delete this category and its '+count+' entries? This cannot be undone.') : 'Delete this empty category?';
+          if(confirm(msg)){
+            var deletedIds = state.entries.filter(function(e){return e.cat===id;}).map(function(e){return e.id;});
+            state.categories = state.categories.filter(function(c){return c.id!==id;});
+            state.entries = state.entries.filter(function(e){return e.cat!==id;});
+            saveState();
+            if(deletedIds.length){
+              var before = focusState.ids.length;
+              focusState.ids = focusState.ids.filter(function(fid){ return deletedIds.indexOf(fid) === -1; });
+              if(focusState.ids.length !== before){ saveFocusState(); renderFocusList(); }
+            }
+            renderRows(); render();
+          }
+        });
+      });
+    }
+    renderRows();
+
+    overlay.querySelector('#addCatBtn').addEventListener('click', function(){
+      state.categories.push({id: genId('cat'), name:'New category', color: nextColor()});
+      saveState(); renderRows(); render();
+    });
+    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
+    overlay.querySelector('#closeCatBtn').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+  }
+
+  /* ============================= MANAGE THEMES ============================= */
+  // Unlike categories, deleting a theme does NOT delete entries — it's a
+  // cross-cutting tag, not a container, so deleting one just untags whatever
+  // entries carried it.
+
+  function openManageThemes(){
+    if(!isAdmin) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay center';
+    overlay.innerHTML =
+      '<div class="panel modal panel-relative" style="width:460px;">'+
+        '<button class="close-x">&times;</button>'+
+        '<h2>Manage themes</h2>'+
+        '<div class="field" style="margin-top:-4px;"><div class="val" style="font-size:12.5px; color:var(--ink-soft);">Curated, cross-cutting tags (e.g. Conflict, Theological Shift) — an entry can carry more than one. Assign them per entry from the entry edit form.</div></div>'+
+        '<div id="themeRows" style="margin-top:10px;"></div>'+
+        '<div class="actions"><button id="addThemeBtn">+ Add theme</button><button class="ghost" id="closeThemeBtn">Done</button></div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function renderRows(){
+      var wrap = overlay.querySelector('#themeRows');
+      wrap.innerHTML = '';
+      (state.themes||[]).forEach(function(theme){
+        var row = document.createElement('div');
+        row.className = 'cat-manage-row';
+        var count = state.entries.filter(function(e){return (e.themes||[]).includes(theme.id);}).length;
+        row.innerHTML =
+          '<input type="color" value="'+theme.color+'" data-id="'+theme.id+'">'+
+          '<input type="text" value="'+escapeHtml(theme.name)+'" data-id="'+theme.id+'">'+
+          '<button class="subtle" data-del="'+theme.id+'" title="Delete theme">Delete ('+count+')</button>';
+        wrap.appendChild(row);
+      });
+      wrap.querySelectorAll('input[type=color]').forEach(function(inp){
+        inp.addEventListener('input', function(){
+          themeById(inp.dataset.id).color = inp.value;
+          saveState(); render();
+        });
+      });
+      wrap.querySelectorAll('input[type=text]').forEach(function(inp){
+        inp.addEventListener('change', function(){
+          themeById(inp.dataset.id).name = inp.value.trim() || 'Untitled';
+          saveState(); render();
+        });
+      });
+      wrap.querySelectorAll('button[data-del]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = btn.dataset.del;
+          var count = state.entries.filter(function(e){return (e.themes||[]).includes(id);}).length;
+          var msg = count ? ('Delete this theme? It will be removed from '+count+' entr'+(count===1?'y':'ies')+', which will not otherwise be affected.') : 'Delete this unused theme?';
+          if(confirm(msg)){
+            state.themes = state.themes.filter(function(t){return t.id!==id;});
+            state.entries.forEach(function(e){
+              if(e.themes) e.themes = e.themes.filter(function(tid){ return tid!==id; });
+            });
+            if(uiState.theme === id) uiState.theme = '';
+            saveState();
+            renderRows(); render();
+          }
+        });
+      });
+    }
+    renderRows();
+
+    overlay.querySelector('#addThemeBtn').addEventListener('click', function(){
+      state.themes.push({id: genId('theme'), name:'New theme', color: nextThemeColor()});
+      saveState(); renderRows(); render();
+    });
+    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
+    overlay.querySelector('#closeThemeBtn').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+  }
+
+  /* ============================= REPORT AN ISSUE ============================= */
+  // One shared modal serving two entry points: the flag button in an entry's
+  // detail panel (which passes that entry for context) and the one in the page
+  // footer (which passes nothing, for a general report).
+  //
+  // INTERIM DELIVERY: there is no server, so submitting hands the report to the
+  // visitor's own email program via a mailto: link. The page transmits nothing
+  // itself, and the visitor can read and edit the message before sending. When
+  // a backend arrives, only sendReport() below should need to change — the
+  // report object it builds is already the shape a database row would take.
+
+  function buildReportText(report){
+    var lines = [];
+    lines.push('Joseph Smith MultiTimeline — issue report');
+    lines.push('');
+    if(report.refId || report.entryTitle){
+      lines.push('Entry:     ' + (report.refId ? report.refId + ' — ' : '') + (report.entryTitle || ''));
+    }else{
+      lines.push('Entry:     (general report — not tied to a specific entry)');
+    }
+    lines.push('Category:  ' + report.category);
+    if(report.reporter) lines.push('Reported by: ' + report.reporter);
+    lines.push('Submitted: ' + report.submitted);
+    lines.push('');
+    lines.push('Details:');
+    lines.push(report.details);
+    return lines.join('\n');
+  }
+
+  function sendReport(report){
+    // Subject carries the issue type and, when there is one, the entry's ref id
+    // — e.g. "MultiTimeline — Source problem — ID-014" — so reports can be
+    // sorted and triaged straight from an inbox list without opening them.
+    var subject = 'MultiTimeline — ' + report.categoryShort + (report.refId ? ' — ' + report.refId : '');
+    var body = buildReportText(report);
+    // The address is left unencoded (valid in mailto); subject and body are
+    // encoded so line breaks and punctuation survive the trip.
+    window.location.href = 'mailto:' + REPORT_EMAIL +
+      '?subject=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
+  }
+
+  function openReportModal(entry){
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay center';
+    // Option values are indexes, so the label text stays free to change without
+    // the lookup depending on exact string matching.
+    var catOptions = FLAG_CATEGORIES.map(function(c, i){
+      return '<option value="' + i + '">' + escapeHtml(c.label) + '</option>';
+    }).join('');
+
+    overlay.innerHTML =
+      '<div class="panel modal panel-relative" style="width:470px;">'+
+        '<button class="close-x">&times;</button>'+
+        '<h2>&#9873; Report an issue</h2>'+
+        (entry
+          ? '<div class="report-context"><span class="rc-ref">'+escapeHtml(entry.refId||'')+'</span><br>'+escapeHtml(entry.title)+'</div>'
+          : '<div class="report-context general">General report — not tied to a specific entry. To report a problem with one particular entry, open it and use the flag button at the bottom of its detail panel.</div>')+
+        '<div class="field"><label>What kind of issue?</label><select id="rp_cat">'+catOptions+'</select></div>'+
+        '<div class="field"><label>Details</label>'+
+          '<textarea id="rp_details" placeholder="What is wrong, and what should it say instead? Citations or links to supporting sources are especially helpful."></textarea>'+
+        '</div>'+
+        '<div class="field"><label>Your name (optional)</label>'+
+          '<input type="text" id="rp_name" placeholder="So the report can be followed up on">'+
+        '</div>'+
+        '<div class="actions">'+
+          '<button id="rp_send">Open email to send</button>'+
+          '<button class="ghost" id="rp_copy">Copy report instead</button>'+
+          '<button class="ghost" id="rp_cancel">Cancel</button>'+
+        '</div>'+
+        '<div class="report-note">This opens your own email program with the report filled in — nothing is sent automatically, and you can edit it first. If no email program opens, use &ldquo;Copy report instead&rdquo; and paste it wherever you like.</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function collect(){
+      var details = overlay.querySelector('#rp_details').value.trim();
+      if(!details){
+        alert('Please describe the issue before submitting.');
+        overlay.querySelector('#rp_details').focus();
+        return null;
+      }
+      var cat = FLAG_CATEGORIES[parseInt(overlay.querySelector('#rp_cat').value, 10)] || FLAG_CATEGORIES[FLAG_CATEGORIES.length - 1];
+      return {
+        refId: entry ? (entry.refId || '') : '',
+        entryId: entry ? entry.id : '',
+        entryTitle: entry ? entry.title : '',
+        category: cat.label,
+        categoryShort: cat.short,
+        details: details,
+        reporter: overlay.querySelector('#rp_name').value.trim(),
+        submitted: new Date().toISOString().slice(0,10)
+      };
+    }
+
+    overlay.querySelector('#rp_send').addEventListener('click', function(){
+      var report = collect();
+      if(!report) return;
+      sendReport(report);
+      overlay.remove();
+    });
+    overlay.querySelector('#rp_copy').addEventListener('click', function(){
+      var report = collect();
+      if(!report) return;
+      copyToClipboard(buildReportText(report), 'Report copied — paste it into an email or message.');
+      overlay.remove();
+    });
+
+    overlay.querySelector('#rp_cancel').addEventListener('click', function(){ overlay.remove(); });
+    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
+    overlay.querySelector('#rp_details').focus();
+  }
+
+  /* ============================= FOCUS PANEL RENDERING & SHARING ============================= */
+
+  function focusListItemHTML(e){
+    var cat = catById(e.cat);
+    return '<div class="focus-item" data-id="'+e.id+'" style="--cat-color:'+cat.color+'">'+
+      '<div class="fi-text"><div class="fi-date">'+dateLabel(e)+' &middot; '+escapeHtml(cat.name)+'</div>'+
+      '<div class="fi-title">'+escapeHtml(e.title)+'</div></div>'+
+      '<button type="button" class="fi-remove" data-id="'+e.id+'" title="Remove from Focus">&times;</button>'+
+      '</div>';
+  }
+
+  function renderFocusList(){
+    var listEl = document.getElementById('focusList');
+    if(!listEl) return; // panel not built yet (closed and never opened)
+    var entries = sortedFocusEntries();
+    listEl.innerHTML = entries.length
+      ? entries.map(focusListItemHTML).join('')
+      : '<div class="focus-empty">Nothing pinned yet. Click the &#9758; on any entry, or drag a card in here, to start building a thread.</div>';
+    listEl.querySelectorAll('.focus-item').forEach(function(item){
+      item.addEventListener('click', function(ev){
+        if(ev.target.closest('.fi-remove')) return;
+        openDetail(item.dataset.id);
+      });
+    });
+    listEl.querySelectorAll('.fi-remove').forEach(function(btn){
+      btn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        removeFromFocus(btn.dataset.id);
+      });
+    });
+    updateFocusToggleUI();
+  }
+
+  function renderFocusPanel(){
+    var inner = document.getElementById('focusPanelInner');
+    if(!inner) return;
+    inner.innerHTML =
+      '<div class="focus-header-row"><h3><span class="fi-hand">&#9758;</span><span>Focus</span></h3><button type="button" class="focus-close-x" id="focusCloseX">&times;</button></div>'+
+      '<div class="focus-sub">Workspace title</div>'+
+      '<input type="text" class="focus-title-input" id="focusTitleInput" placeholder="e.g. Missouri conflict &amp; the Word of Wisdom" value="'+escapeHtml(focusState.title)+'">'+
+      '<div class="focus-sub">Notes</div>'+
+      '<textarea class="focus-notes-textarea" id="focusNotesInput" placeholder="Sketch out your theory or the connection you\'re tracking…">'+escapeHtml(focusState.notes)+'</textarea>'+
+      '<div class="focus-sub" style="margin-top:12px;">Pinned, in chronological order</div>'+
+      '<div class="focus-list" id="focusList"></div>'+
+      '<div class="focus-actions">'+
+        '<button type="button" id="focusCopyLinkBtn">&#9993; Copy shareable link</button>'+
+        '<button type="button" id="focusCopyTextBtn">&#182; Copy as plain text</button>'+
+        '<button type="button" class="danger" id="focusClearBtn">Clear all</button>'+
+      '</div>';
+
+    document.getElementById('focusCloseX').addEventListener('click', function(){
+      focusState.open = false; saveFocusState(); applyFocusOpenState();
+    });
+    document.getElementById('focusTitleInput').addEventListener('input', function(ev){
+      focusState.title = ev.target.value; saveFocusState();
+    });
+    document.getElementById('focusNotesInput').addEventListener('input', function(ev){
+      focusState.notes = ev.target.value; saveFocusState();
+    });
+    document.getElementById('focusClearBtn').addEventListener('click', clearFocus);
+    document.getElementById('focusCopyLinkBtn').addEventListener('click', function(){
+      copyToClipboard(buildFocusShareUrl(), 'Shareable link copied — paste it anywhere.');
+    });
+    document.getElementById('focusCopyTextBtn').addEventListener('click', function(){
+      copyToClipboard(buildFocusPlainText(), 'Text copied — ready to paste.');
+    });
+
+    var panel = document.getElementById('focusPanel');
+    panel.addEventListener('dragover', function(ev){
+      if(!dragFocusEntryId) return;
+      ev.preventDefault();
+      panel.classList.add('drag-over');
+    });
+    panel.addEventListener('dragleave', function(){ panel.classList.remove('drag-over'); });
+    panel.addEventListener('drop', function(ev){
+      ev.preventDefault();
+      panel.classList.remove('drag-over');
+      if(dragFocusEntryId){ addToFocus(dragFocusEntryId); dragFocusEntryId = null; }
+    });
+
+    renderFocusList();
+  }
+
+  function updateFocusToggleUI(){
+    var btn = document.getElementById('focusToggleBtn');
+    if(!btn) return;
+    var n = focusState.ids.length;
+    // Mirrors the markup in the static header button — the manicule needs its
+    // own span so it can be sized and coloured apart from the label.
+    btn.innerHTML = '<span class="fi-hand">&#9758;</span><span>Focus' + (n ? ' ('+n+')' : '') + '</span>';
+    btn.classList.toggle('on', focusState.open);
+  }
+
+  function applyFocusOpenState(){
+    var panel = document.getElementById('focusPanel');
+    panel.classList.toggle('open', focusState.open);
+    if(focusState.open) renderFocusPanel();
+    updateFocusToggleUI();
+  }
+
+  // Copies text to the clipboard with a graceful fallback for browsers/contexts
+  // where the async Clipboard API isn't available.
+  function copyToClipboard(text, successMessage){
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try{
+        document.execCommand('copy');
+        alert(successMessage);
+      }catch(e){
+        prompt('Copy this manually:', text);
+      }
+      ta.remove();
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        alert(successMessage);
+      }).catch(fallback);
+    }else{
+      fallback();
+    }
+  }
+
+  function buildFocusPlainText(){
+    var lines = [];
+    lines.push(focusState.title ? focusState.title : 'Untitled Focus thread');
+    if(focusState.notes) lines.push(focusState.notes);
+    lines.push('');
+    var entries = sortedFocusEntries();
+    if(!entries.length){
+      lines.push('(no entries pinned yet)');
+    }else{
+      entries.forEach(function(e){
+        lines.push('• ' + dateLabel(e) + ' — ' + e.title + (e.refId ? ' ['+e.refId+']' : ''));
+      });
+    }
+    lines.push('');
+    lines.push('— from Joseph Smith MultiTimeline');
+    return lines.join('\n');
+  }
+
+  // Shareable links are built on each entry's stable refId (e.g. ID-014) rather
+  // than its internal id, since refIds are the durable, human-shareable handle.
+  function encodeFocusPayload(){
+    var payload = {
+      t: focusState.title || '',
+      n: focusState.notes || '',
+      ids: sortedFocusEntries().map(function(e){ return e.refId; }).filter(Boolean)
+    };
+    var json = JSON.stringify(payload);
+    var b64 = btoa(unescape(encodeURIComponent(json)));
+    return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function decodeFocusPayload(str){
+    try{
+      var s = str.replace(/-/g,'+').replace(/_/g,'/');
+      while(s.length % 4) s += '=';
+      var json = decodeURIComponent(escape(atob(s)));
+      return JSON.parse(json);
+    }catch(err){ return null; }
+  }
+  function buildFocusShareUrl(){
+    var base = location.origin + location.pathname;
+    return base + '?focus=' + encodeFocusPayload();
+  }
+
+  // On first load, check whether this page was opened via a shared Focus link.
+  function checkForSharedFocusLink(){
+    var params = new URLSearchParams(location.search);
+    var raw = params.get('focus');
+    if(!raw) return;
+    var payload = decodeFocusPayload(raw);
+    if(history.replaceState) history.replaceState(null, '', location.pathname + location.hash);
+    if(!payload || !Array.isArray(payload.ids) || !payload.ids.length){
+      alert('That shared Focus link could not be read.');
+      return;
+    }
+    var resolvedIds = [];
+    payload.ids.forEach(function(refId){
+      var match = state.entries.find(function(e){ return e.refId === refId; });
+      if(match) resolvedIds.push(match.id);
+    });
+    var missing = payload.ids.length - resolvedIds.length;
+    if(!resolvedIds.length){
+      alert('This shared Focus link doesn\'t match any entries in your current data.');
+      return;
+    }
+    var msg = 'This link contains a shared Focus thread'+(payload.t ? ': "'+payload.t+'"' : '')+
+      ' with '+resolvedIds.length+' entr'+(resolvedIds.length===1?'y':'ies')+
+      (missing ? ' ('+missing+' not found in your current data)' : '')+
+      '.\n\nLoad it into your Focus panel? This will replace your current Focus selection.';
+    if(confirm(msg)){
+      focusState.title = payload.t || '';
+      focusState.notes = payload.n || '';
+      focusState.ids = resolvedIds;
+      focusState.open = true;
+      saveFocusState();
+      applyFocusOpenState();
+      render();
+    }
+  }
+
+  /* ============================= ADMIN LOCK ============================= */
+
+  function updateAdminUI(){
+    var btn = document.getElementById('adminToggleBtn');
+    var controls = document.getElementById('adminControls');
+    // Note: write to the inner span, not the footer itself — the footer also
+    // holds the "Report an issue" button, which setting textContent would wipe.
+    var footer = document.getElementById('hintFooterText');
+    controls.style.display = isAdmin ? 'flex' : 'none';
+    if(isAdmin){
+      btn.textContent = '\u26BF Admin unlocked';
+      btn.classList.add('unlocked');
+      footer.textContent = 'Admin unlocked — you can add, edit, reorder, and export from here.';
+    }else{
+      btn.textContent = '\u26BF Admin';
+      btn.classList.remove('unlocked');
+      footer.textContent = 'Click any entry for details and nearby events. Browsing is open to everyone — unlock Admin below to add, edit, or reorganize.';
+    }
+  }
+
+  document.getElementById('adminToggleBtn').addEventListener('click', function(){
+    if(isAdmin){
+      isAdmin = false;
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      updateAdminUI();
+      render();
+    }else{
+      var pw = prompt('Enter the admin password to unlock editing:');
+      if(pw === null) return;
+      if(pw === ADMIN_PASSWORD){
+        isAdmin = true;
+        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+        updateAdminUI();
+        render();
+      }else{
+        alert('That password is not correct.');
+      }
+    }
+  });
+  updateAdminUI();
+
+  document.getElementById('focusToggleBtn').addEventListener('click', function(){
+    focusState.open = !focusState.open;
+    saveFocusState();
+    applyFocusOpenState();
+  });
+  applyFocusOpenState();
+
+  var THREAD_ICON_SVG = '<svg class="thread-icon-svg" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><title xmlns="">thread-roll-filled</title><path fill="#8c2e22" d="M6 12.59L11.59 7H6zm12-1.18L12.41 17H18zM18 7h-3.59L6 15.41V17h3.59L18 8.59z"/><rect width="16" height="3" x="4" y="2" fill="#8c2e22" rx=".75" ry=".75"/><rect width="16" height="3" x="4" y="19" fill="#8c2e22" rx=".75" ry=".75"/></svg>';
+
+  function updateThreadToggleUI(){
+    var btn = document.getElementById('threadToggleBtn');
+    btn.classList.toggle('on', uiState.threadOn);
+    btn.innerHTML = THREAD_ICON_SVG + (uiState.threadOn ? ' Thread: On' : ' Thread: Off');
+  }
+  document.getElementById('threadToggleBtn').addEventListener('click', function(){
+    uiState.threadOn = !uiState.threadOn;
+    updateThreadToggleUI();
+    render();
+  });
+  updateThreadToggleUI();
+
+  document.getElementById('positionToggle').addEventListener('click', function(ev){
+    var btn = ev.target.closest('.seg-btn');
+    if(!btn) return;
+    uiState.positionBy = btn.dataset.mode;
+    document.querySelectorAll('#positionToggle .seg-btn').forEach(function(b){
+      b.classList.toggle('on', b.dataset.mode === uiState.positionBy);
+    });
+    render();
+  });
+
+  /* ============================= TOOLBAR WIRING ============================= */
+
+  document.getElementById('searchBox').addEventListener('input', function(e){
+    uiState.search = e.target.value; render();
+  });
+  document.getElementById('personFilter').addEventListener('change', function(e){
+    uiState.person = e.target.value; render();
+  });
+  document.getElementById('themeFilter').addEventListener('change', function(e){
+    uiState.theme = e.target.value; render();
+  });
+  document.getElementById('zoomSlider').addEventListener('input', function(e){
+    var boardWrap = document.getElementById('board-wrap');
+    var bounds = minMaxYear();
+    var oldPxPerYear = uiState.zoom;
+    var viewportH = boardWrap.clientHeight;
+    var centerPx = boardWrap.scrollTop + viewportH / 2;
+    var centerFy = bounds.min + (centerPx - PADDING_TOP) / oldPxPerYear;
+
+    uiState.zoom = parseInt(e.target.value, 10);
+    render();
+
+    var newCenterPx = PADDING_TOP + (centerFy - bounds.min) * uiState.zoom;
+    boardWrap.scrollTop = Math.max(0, newCenterPx - viewportH / 2);
+  });
+  document.getElementById('addEntryBtn').addEventListener('click', function(){ openEntryForm(null); });
+  document.getElementById('manageCatsBtn').addEventListener('click', openManageCategories);
+  document.getElementById('manageThemesBtn').addEventListener('click', openManageThemes);
+  // General report — no entry passed, so the modal opens without entry context.
+  document.getElementById('reportGeneralBtn').addEventListener('click', function(){ openReportModal(null); });
+
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    if(!isAdmin) return;
+    var blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'joseph-smith-timeline-data.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('importBtn').addEventListener('click', function(){
+    if(!isAdmin) return;
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', function(e){
+    if(!isAdmin) return;
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(reader.result);
+        if(parsed && parsed.categories && parsed.entries){
+          if(confirm('Replace the current board with the imported data?')){
+            parsed.entries.forEach(normalizeEntry);
+            ensureRefIds(parsed);
+            if(!Array.isArray(parsed.themes)) parsed.themes = DEFAULT_THEMES.slice();
+            state = parsed;
+            uiState.collapsedCats = {};
+            uiState.selectedId = null;
+            uiState.theme = '';
+            uiState.colOrder = null;
+            saveState();
+            render();
+          }
+        }else{
+          alert('That file doesn\'t look like a valid timeline export.');
+        }
+      }catch(err){
+        alert('Could not read that file as JSON.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // Column "+ add" buttons (delegated, since columns re-render)
+  boardInner.addEventListener('click', function(ev){
+    if(ev.target.matches('.add-in-col')){
+      var catId = ev.target.dataset.cat;
+      openEntryForm(null);
+      setTimeout(function(){
+        var sel = document.getElementById('f_cat');
+        if(sel) sel.value = catId;
+      }, 0);
+    }
+  });
+
+  window.addEventListener('resize', function(){ drawThreads(minMaxYear(), uiState.zoom); });
+
+  render();
+
+  // Open the board scrolled to a more eventful starting point rather than
+  // the very beginning of the timeline, so first-time visitors land somewhere
+  // with plenty of entries to explore right away.
+  function scrollToYear(year, topOffset){
+    var bounds = minMaxYear();
+    var y = yFor(year, bounds, uiState.zoom);
+    document.getElementById('board-wrap').scrollTop = Math.max(0, y - (topOffset || 40));
+  }
+  scrollToYear(1825);
+  checkForSharedFocusLink();
+})();
+</script>
+</body>
+</html>
