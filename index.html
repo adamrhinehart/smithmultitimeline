@@ -119,7 +119,23 @@
     font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;
     display:flex; align-items:center; gap:6px;
   }
-  .toolbar input[type=range]{ width:110px; accent-color: var(--brass); }
+  .toolbar input[type=range]{ width:150px; accent-color: var(--brass); }
+  .zoom-level-label{
+    font-family:'Inter',sans-serif; font-size:10px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.06em; color: var(--brass-dark);
+    min-width:44px;
+  }
+  .jump-field{
+    font-family:'Inter',sans-serif; font-size:12px;
+    height: var(--control-h); padding:0 6px;
+    border:1px solid var(--rule-strong); border-radius: var(--radius);
+    background: var(--card-bg); color: var(--ink);
+  }
+  #jumpYear{ width:56px; }
+  #jumpMonth, #jumpDay{ width:56px; }
+  .jump-go{
+    height: var(--control-h); padding:0 12px; font-size:12px;
+  }
   /* Admin buttons share the row, so they share its height. Their squared corners
      are left as-is for now — converting them to pills is a separate decision. */
   #adminControls button{
@@ -578,7 +594,7 @@
     box-shadow: var(--shadow);
     padding:7px 9px 7px 9px;
     cursor:pointer;
-    transition: transform .1s ease, box-shadow .1s ease, opacity .15s;
+    transition: transform .1s ease, box-shadow .1s ease, opacity .15s, top .16s ease, left .16s ease;
     min-height:38px;
   }
   .entry-card:hover{ transform: translateY(-1px); box-shadow: 0 3px 10px rgba(42,36,32,.22); z-index: 2000 !important; }
@@ -1056,6 +1072,24 @@
   .pin-btn.pinned{ opacity:0.9; background:#c9a227; }
   .pin-btn.pinned:hover{ background:#a8862f; }
   .entry-card.in-focus{ box-shadow: 0 0 0 2px #1D3D5E, var(--shadow); }
+  /* Stack badge: a small tab that hangs just below the top card of a cluster,
+     telling the reader how many cards are stacked underneath. Positioned below
+     the card body (not over it) so it never covers the title text. It's a
+     separate click target from the card (like the pin button), so clicking it
+     fans the stack rather than opening the card. */
+  .stack-badge{
+    position:absolute; left:10px; bottom:-11px;
+    height:17px; min-width:18px; padding:0 7px; border-radius:0 0 8px 8px;
+    display:flex; align-items:center; justify-content:center; gap:3px;
+    background: var(--brass); color:#fff;
+    font-family:'Inter',sans-serif; font-size:10px; font-weight:600; line-height:1;
+    border:none; cursor:default; box-shadow: 0 2px 4px rgba(42,36,32,.28);
+    transition: background .12s;
+    z-index: 5;
+    pointer-events: none; /* readout only — never intercepts a card click */
+  }
+  .stack-badge:hover{ background: var(--brass-dark); }
+  .stack-badge .sb-glyph{ font-size:11px; }
 
   /* Sibling of the header's Focus toggle: same pill shape, height, icon size and
      brass-fill active state. It carries a hairline border the header button does
@@ -1127,7 +1161,17 @@
     <input type="text" id="searchBox" placeholder="Search titles, notes, people…">
     <select id="personFilter"><option value="">All people</option></select>
     <select id="themeFilter"><option value="">All themes</option></select>
-    <label class="small">Zoom <input type="range" id="zoomSlider" min="30" max="200" value="80"></label>
+    <label class="small">Zoom
+      <input type="range" id="zoomSlider" min="0" max="1000" value="0" list="zoomStops">
+      <datalist id="zoomStops"></datalist>
+    </label>
+    <span class="zoom-level-label" id="zoomLevelLabel"></span>
+    <label class="small" style="gap:5px;">Go to
+      <input type="number" id="jumpYear" class="jump-field" placeholder="Y" min="1700" max="1900">
+      <select id="jumpMonth" class="jump-field"><option value="">M</option></select>
+      <select id="jumpDay" class="jump-field"><option value="">D</option></select>
+      <button type="button" id="jumpGo" class="jump-go">Go</button>
+    </label>
     <button class="ghost thread-toggle" id="threadToggleBtn" title="Draw one line through every visible entry, in chronological order"><svg class="thread-icon-svg" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><title xmlns="">thread-roll-filled</title><path fill="#8c2e22" d="M6 12.59L11.59 7H6zm12-1.18L12.41 17H18zM18 7h-3.59L6 15.41V17h3.59L18 8.59z"/><rect width="16" height="3" x="4" y="2" fill="#8c2e22" rx=".75" ry=".75"/><rect width="16" height="3" x="4" y="19" fill="#8c2e22" rx=".75" ry=".75"/></svg> Thread: Off</button>
     <label class="small" style="gap:8px;">Position by
       <div class="seg-toggle" id="positionToggle">
@@ -1221,7 +1265,7 @@
       {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 1 (recounts the move "when I was in my tenth year")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
       {text:'Lucy Mack Smith, History, 1844–1845', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'}
     ]},
-    {cat:'life', y:1827, m:1, d:18, title:'Marries Emma Hale', people:['Emma Hale Smith'], desc:'Marries Emma Hale in South Bainbridge, New York, against her father\'s wishes.', sources:[
+    {cat:'life', importance:'landmark', y:1827, m:1, d:18, title:'Marries Emma Hale', people:['Emma Hale Smith'], desc:'Marries Emma Hale in South Bainbridge, New York, against her father\'s wishes.', sources:[
       {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 8 ("On the eighteenth of January...we were married")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/8'}
     ]},
     {cat:'life', y:1828, m:6, approx:true, title:'Birth and death of son Alvin', people:['Emma Hale Smith'], desc:'First child dies shortly after birth.', sources:[
@@ -1243,7 +1287,13 @@
     {cat:'life', y:1843, approx:true, title:'Plural marriage discussed within inner circle', people:['Emma Hale Smith'], desc:'Practice of plural marriage becomes a source of private tension, including with Emma.', sources:[
       {text:'Revelation, 12 July 1843 [D&C 132] — JSP\'s annotation, drawing on William Clayton\'s journal and 1874 affidavit, describes the private conversation between JS, Hyrum, and Clayton immediately before the revelation was dictated', url:'https://www.josephsmithpapers.org/paper-summary/revelation-12-july-1843-dc-132/1'}
     ]},
-    {cat:'life', y:1844, m:6, d:27, title:'Killed at Carthage Jail', people:['Hyrum Smith'], desc:'Shot and killed by an armed mob while awaiting trial in Carthage, Illinois.', sources:[
+    {cat:'life', importance:'notable', y:1844, m:6, d:23, title:'Flees across the Mississippi to Iowa Territory', people:['Hyrum Smith'], desc:'With a fresh posse expected and Governor Ford warning that state troops would occupy Nauvoo until they were surrendered, JS and Hyrum row across the Mississippi River before dawn to the Iowa Territory side, near Montrose — the start of a roughly day-long absence before they returned to face the Carthage warrant.', sources:[
+      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — the eyewitness account of these days, written by a companion present with JS throughout', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844'}
+    ], researchNotes:'On the night of 22–23 June, with a fresh posse expected from Carthage and Governor Ford having warned that he would send state troops to occupy Nauvoo "if it took three years" to find them, JS and Hyrum crossed the Mississippi before daylight, reaching the Iowa Territory side near Montrose. Willard Richards and Orrin Porter Rockwell were with them; the posse that reached Nauvoo that morning did not find them and turned back to Carthage, leaving behind a man named Yates who repeated Ford\'s threat to those remaining in the city.\n\nThis entry covers the crossing itself; the pressure that brought them back within hours is covered in the entry that follows.'},
+    {cat:'life', importance:'notable', y:1844, m:6, d:24, title:'Returns from Iowa and rides to Carthage', people:['Emma Hale Smith','Hyrum Smith'], desc:'Persuaded to come back rather than continue on, JS and Hyrum recross the river to Nauvoo, say goodbye to their families, and ride out with several Nauvoo city officials toward Carthage — arriving and voluntarily submitting to the riot charge the next day.', sources:[
+      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — the eyewitness account of the return and the ride to Carthage', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844'}
+    ], researchNotes:'Within hours of reaching Iowa, pressure mounted for JS to come back. Around 1 p.m. on 23 June, Emma sent Orrin Porter Rockwell across the river to plead with him; Reynolds Cahoon followed with a letter from Emma herself and, by his own account, pressed the case for returning and giving himself up.\n\nJS and Hyrum recrossed to Nauvoo, and on 24 June said goodbye to their families before riding out with several Nauvoo city officials toward Carthage. Willard Richards\' journal is the principal eyewitness record spanning both this day and the days that follow, through the killings on the 27th.\n\nThey reached Carthage and voluntarily submitted to the original riot charge — the same charge covered in the "Warrant issued for JS\'s arrest" entry under Legal Proceedings. What happened next, a second and unrelated charge brought against JS and Hyrum alone, is recorded separately in that same lane.'},
+    {cat:'life', importance:'landmark', y:1844, m:6, d:27, title:'Killed at Carthage Jail', people:['Hyrum Smith'], desc:'Shot and killed by an armed mob while awaiting trial in Carthage, Illinois.', sources:[
       {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — written by an eyewitness who was in the room; also published as "Two Minutes in Jail," Times and Seasons, 1 Aug. 1844', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844/19'}
     ]},
 
@@ -1286,17 +1336,17 @@
     ]},
 
     // ---- Revelations & Scripture ----
-    {cat:'revelations', y:1820, m:3, approx:true, recordedY:1832, recordedApprox:true, title:'First Vision, Sacred Grove', people:['Joseph Smith'], desc:'Reports a theophany in the woods near the family farm while seeking which church to join. The earliest known written account is in his own hand from 1832; further, somewhat differing accounts followed in 1835, 1838, and 1842.', sources:[
+    {cat:'revelations', importance:'landmark', y:1820, m:3, approx:true, recordedY:1832, recordedApprox:true, title:'First Vision, Sacred Grove', people:['Joseph Smith'], desc:'Reports a theophany in the woods near the family farm while seeking which church to join. The earliest known written account is in his own hand from 1832; further, somewhat differing accounts followed in 1835, 1838, and 1842.', sources:[
       {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving account, in his own handwriting', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1', sy:1832, sApprox:true, access:'firsthand'},
       {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 2–3 (the canonical account, later published as Joseph Smith—History 1:14–20)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/2', sy:1838, sApprox:true, access:'firsthand'},
       {text:'Orson Pratt, An Interesting Account of Several Remarkable Visions, 1840, p. 5 — the earliest printed account of the First Vision; Pratt was not himself present and narrates what he had heard from JS', url:'https://www.josephsmithpapers.org/paper-summary/appendix-orson-pratt-an-interesting-account-of-several-remarkable-visions-1840/5', sy:1840, access:'secondhand'}
     ], researchNotes:'This entry is the working demonstration of the source-provenance tags: each source carries a date and a firsthand/secondhand mark, and the timing band and year-gap shown on the card are computed from those. All three surviving accounts are retrospective — the earliest by about twelve years — so a reader filtering for a contemporary account of the First Vision would find none, which is itself a fact about the record. (Note: the earlier scaffold text mentioned 1835 and 1842 accounts as well; only the three sourced here are tagged.)'},
-    {cat:'revelations', y:1823, m:9, d:21, recordedY:1832, recordedApprox:true, title:'First visit from the angel Moroni', people:['Joseph Smith'], desc:'Reports the first of repeated nighttime visits from a heavenly messenger describing buried gold plates, beginning four years of annual instruction before the plates were received.', sources:[
+    {cat:'revelations', importance:'landmark', y:1823, m:9, d:21, recordedY:1832, recordedApprox:true, title:'First visit from the angel Moroni', people:['Joseph Smith'], desc:'Reports the first of repeated nighttime visits from a heavenly messenger describing buried gold plates, beginning four years of annual instruction before the plates were received.', sources:[
       {text:'Joseph Smith, "History, circa Summer 1832" \u2014 the earliest surviving account, partly in JS\'s own handwriting, which mentions the visits of an angel and the coming forth of the record', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
       {text:'Oliver Cowdery, "Letter IV," Messenger and Advocate, Feb. 1835 \u2014 written with JS\'s direction and approval, later copied into JS\'s own journal-history', url:'https://www.josephsmithpapers.org/paper-summary/history-1834-1836/69'},
       {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, pp. 4\u20135 \u2014 the fuller narrative, later published as Joseph Smith\u2014History 1:27\u201354', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/4'}
     ], researchNotes:'Merged from two entries that recorded the same event a day apart in different lanes \u2014 "First visit from the angel Moroni" (then under Personal Life) and "Angelic instruction begins" (Revelations & Scripture). They shared a source and described one occurrence. Filed under Revelations & Scripture because the event is a revelatory claim; its biographical weight is real but does not decide the lane.\n\nThe Joseph Smith Papers notes that almost no original records survive from JS\'s life between 1805 and 1827, so every account of these visits is reminiscent. The two earliest are his own histories of circa summer 1832 and 1838\u201339, written roughly nine and fifteen years afterwards; the first-recorded date is set to 1832 on that basis. JSP dates the first appearance to late in the night of 21\u201322 September 1823.'},
-    {cat:'revelations', y:1827, m:9, d:22, title:'Receives the plates from Moroni', people:['Joseph Smith'], desc:'Reports finally receiving the gold plates at the Hill Cumorah.', sources:[
+    {cat:'revelations', importance:'landmark', y:1827, m:9, d:22, title:'Receives the plates from Moroni', people:['Joseph Smith'], desc:'Reports finally receiving the gold plates at the Hill Cumorah.', sources:[
       {text:'Joseph Smith, History, 1838–1856, vol. A-1 (later published as Joseph Smith—History 1:59)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
     ]},
     {cat:'revelations', y:1828, m:4, d:12, approx:true, title:'Translation work begins in Harmony, PA', people:['Martin Harris'], desc:'Dictation of the Book of Mormon text begins at Harmony, Pennsylvania, with Martin Harris as scribe. The resulting manuscript — later described as 116 pages — was lost after Harris took it to Palmyra to show his family.', sources:[
@@ -1316,7 +1366,7 @@
       {text:'Letter to the Church, 7 September 1842 [D&C 128:20–21] — JS summarises the restoration of priesthood and keys, mentioning Peter, James and John, and the voice of God in the chamber of "Father Whitmer"', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-of-jesus-christ-of-latter-day-saints-6-september-1842-dc-128/7'},
       {text:'Joseph Smith Papers, "Priesthood Restoration" — finding aid compiling the earliest records describing or alluding to the restoration of authority', url:'https://www.josephsmithpapers.org/site/priesthood-restoration'}
     ], researchNotes:'The Joseph Smith Papers states that historical records describing the reception of this higher authority are "generally less specific and more complex" than those for the Aaronic Priesthood, and the surviving accounts differ in kind: some describe Peter, James and John appearing and conferring a higher priesthood, while others describe an earlier event at the home of Peter Whitmer Sr. in which the voice of God commanded JS and Cowdery to ordain one another to the office of elder in a public meeting.\n\nNo surviving record fixes a date for the event. The June 1829 date on this entry is approximate and derives from its placement relative to the Aaronic Priesthood account rather than from a document. As with that entry, the earliest surviving reference is the circa summer 1832 history, so the first-recorded date is set to 1832, replacing an earlier value of 1838.'},
-    {cat:'revelations', y:1830, m:3, d:26, title:'Book of Mormon published', people:['Martin Harris'], desc:'Printing is completed at E. B. Grandin\'s shop in Palmyra and copies are first offered for sale, financed by Martin Harris against the mortgage of his farm.', sources:[
+    {cat:'revelations', importance:'landmark', y:1830, m:3, d:26, title:'Book of Mormon published', people:['Martin Harris'], desc:'Printing is completed at E. B. Grandin\'s shop in Palmyra and copies are first offered for sale, financed by Martin Harris against the mortgage of his farm.', sources:[
       {text:'Book of Mormon, 1830 — the first edition itself', url:'https://www.josephsmithpapers.org/paper-summary/book-of-mormon-1830/1'},
       {text:'Agreement with Martin Harris, 16 January 1830 — the arrangement securing Harris\'s financing of the printing', url:'https://www.josephsmithpapers.org/paper-summary/agreement-with-martin-harris-16-january-1830/1'},
       {text:'Advertisement, Wayne Sentinel (Palmyra, NY), 26 Mar. 1830 — Grandin offers the book for sale, retail and wholesale, at his bookstore'}
@@ -1363,7 +1413,7 @@
     ], researchNotes:'The same document is cited from the Personal Life entry on plural marriage within the inner circle; the two entries approach it from different threads and share the citation.\n\nOn provenance: the account of the dictation itself comes from William Clayton, who wrote it down. His journal is contemporary; the affidavit elaborating on the circumstances dates to 1874, thirty-one years afterwards. The revelation was not published during JS\'s lifetime.'},
 
     // ---- Church History ----
-    {cat:'church', y:1830, m:4, d:6, title:'Church of Christ organized', people:['Oliver Cowdery','David Whitmer'], desc:'The church is formally organized, with JS and Oliver Cowdery ordaining one another as elders before a meeting of baptized believers.', sources:[
+    {cat:'church', importance:'landmark', y:1830, m:4, d:6, title:'Church of Christ organized', people:['Oliver Cowdery','David Whitmer'], desc:'The church is formally organized, with JS and Oliver Cowdery ordaining one another as elders before a meeting of baptized believers.', sources:[
       {text:'Revelation, 6 April 1830 [D&C 21] — dictated the day the church was organized; copied into Revelation Book 1 circa March 1831', url:'https://www.josephsmithpapers.org/paper-summary/revelation-6-april-1830-dc-21/1'},
       {text:'Articles and Covenants, circa April 1830 [D&C 20:2\u20133] — states that JS and Cowdery ordained each other elders in the church', url:'https://www.josephsmithpapers.org/paper-summary/articles-and-covenants-circa-april-1830-dc-20/1'},
       {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, p. 37 \u2014 account of the 6 April 1830 meeting', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/43'}
@@ -1382,7 +1432,7 @@
       {text:'Minutes, 14 February 1835 \u2014 the record of the conference and the list of the twelve chosen; copied into the "Record of the Transactions of the Twelve" in Orson Hyde\'s handwriting', url:'https://www.josephsmithpapers.org/paper-summary/minutes-14-february-1835/1'},
       {text:'Record of the Twelve, 14 February\u201328 August 1835 \u2014 the quorum\'s own record, opening with its organization', url:'https://www.josephsmithpapers.org/paper-summary/record-of-the-twelve-14-february-28-august-1835/7'}
     ], researchNotes:'The minutes were copied into the record book between about 27 February and 2 May 1835, within roughly three months of the meeting, in the handwriting of Orson Hyde \u2014 himself one of the twelve chosen that day, so a participant rather than an outside scribe.\n\nThe minutes state the twelve were chosen and ordained by the Three Witnesses (Oliver Cowdery, David Whitmer and Martin Harris). Heber C. Kimball, also among the twelve, recorded that the First Presidency then laid hands on them to confirm the blessings and ordination; his journal account was written circa 1842\u20131858.'},
-    {cat:'church', y:1836, m:3, d:27, title:'Kirtland Temple dedicated', people:[], desc:'The church\'s first temple is completed and dedicated, with a dedicatory prayer later canonized as Doctrine and Covenants 109.', sources:[
+    {cat:'church', importance:'landmark', y:1836, m:3, d:27, title:'Kirtland Temple dedicated', people:[], desc:'The church\'s first temple is completed and dedicated, with a dedicatory prayer later canonized as Doctrine and Covenants 109.', sources:[
       {text:'Minutes and Prayer of Dedication, 27 March 1836 [D&C 109] \u2014 the dedication service and prayer', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-prayer-of-dedication-27-march-1836-dc-109'}
     ], researchNotes:'The dedicatory prayer asks that the house be a place where the Son of Man would manifest himself to his people. The visions reported a week later, on 3 April, are recorded as a separate entry under Revelations & Scripture; the two had previously been merged under this date.'},
     {cat:'church', y:1837, m:1, d:2, title:'Kirtland Safety Society founded', people:['Sidney Rigdon'], desc:'A church-affiliated financial institution is founded at Kirtland amid a real-estate and currency boom, after the Ohio legislature declined to grant a banking charter.', sources:[
@@ -1392,11 +1442,11 @@
     {cat:'church', y:1838, m:4, d:26, title:'Church officially renamed', people:[], desc:'The revelation dictated at Far West gives the church its official name, "The Church of Jesus Christ of Latter Day Saints."', sources:[
       {text:'Revelation, 26 April 1838 [D&C 115] \u2014 copied into JS\'s journal (the "Scriptory Book") in the handwriting of George W. Robinson', url:'https://www.josephsmithpapers.org/paper-summary/revelation-26-april-1838-dc-115/1'}
     ], researchNotes:'The same document is cited from the Revelations & Scripture entry, which treats it as a revelation; this entry treats the naming as an institutional event. The manuscript spells the name "Latter Day Saints"; the hyphenated form is a later standardisation.'},
-    {cat:'church', y:1838, m:11, approx:true, title:'Saints expelled from Missouri', people:[], desc:'Following armed conflict and the state\'s extermination order, church members surrender at Far West and begin leaving Missouri, most crossing into Illinois over the winter of 1838\u201339.', sources:[
+    {cat:'church', importance:'landmark', y:1838, m:11, approx:true, title:'Saints expelled from Missouri', people:[], desc:'Following armed conflict and the state\'s extermination order, church members surrender at Far West and begin leaving Missouri, most crossing into Illinois over the winter of 1838\u201339.', sources:[
       {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict to the surrender at Far West', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'},
       {text:'Joseph Smith et al., Letter to the Church and Edward Partridge, 20 March 1839 \u2014 written from Liberty Jail during the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-and-edward-partridge-20-march-1839/1'}
     ], researchNotes:'The expulsion was a process rather than a single event, running from the surrender at Far West at the start of November 1838 through the following winter, which is why this entry carries an approximate date.\n\nThe order that prompted it \u2014 Governor Lilburn Boggs\'s Executive Order 44 of 27 October 1838 \u2014 is recorded separately under Local & Regional Events, as a state action rather than a church one. JS\'s manuscript history of this period was composed from 1838 onward, in part while he was imprisoned; the Liberty Jail letter is contemporary with the expulsion itself.'},
-    {cat:'church', y:1839, m:5, approx:true, title:'Nauvoo, Illinois founded', people:[], desc:'After the expulsion from Missouri, the church purchases land at Commerce on a bend of the Mississippi; the settlement is renamed Nauvoo and becomes the new gathering place.', sources:[
+    {cat:'church', importance:'landmark', y:1839, m:5, approx:true, title:'Nauvoo, Illinois founded', people:[], desc:'After the expulsion from Missouri, the church purchases land at Commerce on a bend of the Mississippi; the settlement is renamed Nauvoo and becomes the new gathering place.', sources:[
       {text:'Joseph Smith, History, 1838\u20131856, vol. C-1 [2 Nov. 1838\u201331 July 1842] \u2014 JS\'s manuscript history covering the settlement at Commerce and its renaming', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-c-1-2-november-1838-31-july-1842/1'}
     ], researchNotes:'The same volume is cited from the Personal Life entry on the family settling at Commerce. The founding was gradual \u2014 land purchases from spring 1839, with the name Nauvoo adopted over the following months \u2014 so the entry carries an approximate date rather than a single document date.'},
     {cat:'church', y:1841, m:4, d:6, title:'Nauvoo Temple cornerstone laid', people:[], desc:'Cornerstones are laid for a temple on the bluff at Nauvoo, in a public ceremony attended by the Nauvoo Legion and invited guests from around Hancock County.', sources:[
@@ -1421,12 +1471,19 @@
     {cat:'legal', y:1844, m:6, d:10, title:'Nauvoo Expositor press destroyed', people:['William Law'], desc:'The Nauvoo city council declares the Expositor\'s printing establishment a public nuisance and orders its removal; JS as mayor directs the city marshal to destroy the press, which is done the same day. The act ignites regional outrage and leads directly to JS\'s arrest.', sources:[
       {text:'Resolution, 10 June 1844 \u2014 the city council\'s declaration that the printing establishment "is a public Nuisance," instructing the mayor to remove it "in such manner as he shall direct"', url:'https://www.josephsmithpapers.org/paper-summary/resolution-10-june-1844/1'},
       {text:'Mayor\'s Order to Nauvoo City Marshal, 10 June 1844 \u2014 JS\'s order to John P. Greene to destroy the press', url:'https://www.josephsmithpapers.org/paper-summary/mayors-order-to-nauvoo-city-marshal-10-june-1844'},
-      {text:'Minutes, 10 June 1844 \u2014 the city council meeting at which the resolution was debated and passed', url:'https://www.josephsmithpapers.org/paper-summary/minutes-10-june-1844'},
-      {text:'Warrant, 11 June 1844, State of Illinois v. JS et al. for Riot \u2014 the charge brought the following day', url:'https://www.josephsmithpapers.org/paper-summary/warrant-11-june-1844-state-of-illinois-v-js-et-al-for-riot-a'}
-    ], researchNotes:'Split from a single entry dated 7 June that had compressed publication and destruction into one event three days apart.\n\nOn provenance: the city council\'s original resolution is not extant. It was sent to JS\'s attorneys, Hugh T. Reid and James W. Woods, who requested it on 24 June 1844; the version cited here is a handwritten copy made by William Clayton, JS\'s private clerk, apparently on or about 25 June \u2014 about two weeks after the event, and written on the same leaf as a copy of the mayor\'s order. The Nauvoo Neighbor published a slightly altered form of the resolution on 17 and 19 June, substituting "office" for "establishment."\n\nThe council debated the measure on 8 June and again on 10 June. The Joseph Smith Papers records that all members voted in favour except Councilor Benjamin Warrington, who was not a member of the church and urged instead that the proprietors be given notice to desist and then fined for noncompliance.\n\nThe council\'s authority to declare a nuisance came from the Nauvoo charter of 16 December 1840, recorded separately in this category.'},
+      {text:'Minutes, 10 June 1844 \u2014 the city council meeting at which the resolution was debated and passed', url:'https://www.josephsmithpapers.org/paper-summary/minutes-10-june-1844'}
+    ], researchNotes:'Split from a single entry dated 7 June that had compressed publication and destruction into one event three days apart.\n\nOn provenance: the city council\'s original resolution is not extant. It was sent to JS\'s attorneys, Hugh T. Reid and James W. Woods, who requested it on 24 June 1844; the version cited here is a handwritten copy made by William Clayton, JS\'s private clerk, apparently on or about 25 June \u2014 about two weeks after the event, and written on the same leaf as a copy of the mayor\'s order. The Nauvoo Neighbor published a slightly altered form of the resolution on 17 and 19 June, substituting "office" for "establishment."\n\nThe council debated the measure on 8 June and again on 10 June. The Joseph Smith Papers records that all members voted in favour except Councilor Benjamin Warrington, who was not a member of the church and urged instead that the proprietors be given notice to desist and then fined for noncompliance.\n\nThe council\'s authority to declare a nuisance came from the Nauvoo charter of 16 December 1840, recorded separately in this category.\n\nThe riot warrant that followed the next day is now its own entry below, rather than a fourth source here.'},
+    {cat:'legal', y:1844, m:6, d:11, title:'Warrant issued for JS\'s arrest over the Expositor\'s destruction', people:['Joseph Smith'], desc:'On a complaint from Francis M. Higbee, Justice of the Peace Thomas Morrison issues a warrant charging JS and seventeen other men with riot for destroying the Expositor press. JS is arrested the following day and discharged the same day on a writ of habeas corpus from the Nauvoo Municipal Court.', sources:[
+      {text:'Warrant, 11 June 1844, State of Illinois v. JS et al. for Riot \u2014 the charge brought the day after the press was destroyed', url:'https://www.josephsmithpapers.org/paper-summary/warrant-11-june-1844-state-of-illinois-v-js-et-al-for-riot-a'},
+      {text:'Introduction to State of Illinois v. JS et al. for Riot\u2013A [and related documents] \u2014 covers the complaint, the arrest on 12 June, and the habeas corpus discharge the same day', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-state-of-illinois-v-js-et-al-for-riot-a-state-of-illinois-v-js-for-riot-on-habeas-corpus-state-of-illinois-v-h-smith-et-al-on-habeas-corpus-and-state-of-illinois-v-js-et-al-for-riot-b/1'}
+    ], researchNotes:'Split out from the press-destruction entry\'s source list at the user\'s request, since the warrant is a distinct legal act a day later rather than part of destroying the press itself.\n\nMorrison\'s original complaint is apparently not extant; it survives only as summarised in the warrant he issued the same day. The named defendants \u2014 JS and seventeen others \u2014 were arrested on 12 June by Hancock County constable David Bettisworth and immediately petitioned the Nauvoo Municipal Court for habeas corpus, which examined and discharged them that same day. This was one of several rounds of the same riot charge that summer: a later preliminary examination on 25 June bound JS and the others to $500 recognizances, and this Riot\u2013A case unfolded amid the broader unrest that led to the Carthage jail killings on 27 June.'},
+    {cat:'legal', y:1844, m:6, d:25, title:'Charged with treason and jailed at Carthage', people:['Hyrum Smith'], desc:'Hours after voluntarily submitting to the riot charge and most co-defendants being released on $500 recognizances, JS and Hyrum alone are charged with treason \u2014 for having called out the Nauvoo Legion \u2014 and are committed to the Hancock County jail to await trial, on the order of the same justice who heard the riot case.', sources:[
+      {text:'Warrant, 24 June 1844\u2013A [State of Illinois v. JS and H. Smith for Treason] \u2014 sworn on the complaint of Augustine Spencer and Henry O. Norton', url:'https://www.josephsmithpapers.org/paper-summary/warrant-24-june-1844-a-state-of-illinois-v-js-and-h-smith-for-treason/1'},
+      {text:'Mittimus, 25 June 1844 [State of Illinois v. JS and H. Smith for Treason] \u2014 Justice Robert F. Smith\'s order committing JS and Hyrum to the county jail "until discharged by due course of law"', url:'https://www.josephsmithpapers.org/paper-summary/mittimus-25-june-1844-state-of-illinois-v-js-and-h-smith-for-treason/1'}
+    ], researchNotes:'This is the tangled part of the story, and the sources do not fully agree on the sequencing.\n\nThe Joseph Smith Papers catalogs the initiating warrant under 24 June (two versions, "Warrant, 24 June 1844\u2013A" and "\u2013B," likely reflecting separate warrants for JS and for Hyrum), and its own summary of that document notes that most of the riot-case defendants left for Nauvoo "that evening" after posting recognizances, while JS and Hyrum alone were kept in custody on the new charge. But JS\'s own letter to Emma, written from Carthage and dated "25th, 2:30 o\'clock p.m.," describes the two of them as having "been again arrested for treason" that day, and the committal order (Mittimus) is dated 25 June \u2014 so the arrest as JS himself experienced and dated it, and the document that actually sent him to jail, both point to the 25th. This entry is dated to the 25th on that basis, while these notes flag the 24 June warrant date rather than silently resolving the discrepancy.\n\nThe presiding officer for both the riot examination and the treason charge was Robert F. Smith \u2014 a Hancock County justice of the peace who was also captain of the Carthage Greys, the local militia unit later implicated in the killings two days afterward. Governor Ford was in Carthage at the time, had personally assured JS\'s attorneys of a fair examination, and that same morning introduced JS and Hyrum to the assembled militia as "General Joseph Smith and General Hyrum Smith" \u2014 even as, by JS\'s own account, there was "a little mutiny among the Carthage Greys."\n\nThe case did not end on the 25th: further filings followed on 26 June (a second Mittimus, an Order, and a List of Witnesses), with trial itself set for 29 June \u2014 three days after the killings that ended it. JS understood the treason charge as stemming specifically from his having called out the Nauvoo Legion (the city\'s militia) amid the unrest of the preceding weeks.'},
 
     // ---- Politics & Government ----
-    {cat:'politics', y:1838, m:10, d:27, title:'Missouri "Extermination Order"', people:['Lilburn Boggs'], desc:'Governor Lilburn Boggs issues Executive Order 44, directing General John B. Clark that "the Mormons must be treated as enemies, and must be exterminated or driven from the State if necessary for the public peace."', sources:[
+    {cat:'politics', importance:'landmark', y:1838, m:10, d:27, title:'Missouri "Extermination Order"', people:['Lilburn Boggs'], desc:'Governor Lilburn Boggs issues Executive Order 44, directing General John B. Clark that "the Mormons must be treated as enemies, and must be exterminated or driven from the State if necessary for the public peace."', sources:[
       {text:'Lilburn W. Boggs, Executive Order 44, 27 October 1838 \u2014 digitised scan of the order; the original is held by the Missouri State Archives', url:'https://archive.org/details/BoggsExterminationOrder44'}
     ], researchNotes:'A state government document rather than a church one, which is why it sits in this category; the resulting expulsion is recorded separately under Church History.\n\nThe order was issued three days after the Battle of Crooked River and, per the accounts, on the basis of reports of that engagement and of rumoured Mormon military plans. It was formally rescinded by Governor Christopher S. Bond on 25 June 1976, nearly 138 years later.\n\nThe citation links to a digitised scan rather than to the Missouri State Archives\' own catalogue record; a direct archival citation would be preferable if this entry is revisited.'},
     {cat:'politics', y:1839, m:12, approx:true, title:'Illinois politicians court the new settlers', people:[], desc:'Both Whigs and Democrats in Illinois compete for the support of the Saints arriving from Missouri, laying the political groundwork for the unusually broad city charter granted a year later.', sources:[
@@ -1457,7 +1514,7 @@
       {text:'Specie Circular, executive order of President Andrew Jackson, 11 July 1836 \u2014 required payment in specie for public land purchases, one of the immediate precipitants'},
       {text:'Introduction to the Kirtland Safety Society \u2014 the Joseph Smith Papers account of the society\'s failure, which situates it against the wider financial crisis', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'}
     ], researchNotes:'Outside the Joseph Smith Papers\' subject matter except where it bears on Kirtland. The first citation is given without a link because that document was not among those verified; a financial-history repository such as FRASER at the Federal Reserve Bank of St. Louis would be the natural place to source this entry properly.\n\nThe usual account of the crisis assigns it several causes at once \u2014 the Specie Circular, the Deposit Act of 1836, the expiry of the Second Bank of the United States, and tightening British monetary policy \u2014 rather than any single trigger.'},
-    {cat:'local', y:1838, m:10, d:30, title:'Haun\'s Mill Massacre', people:[], desc:'Three days after the extermination order, a Missouri militia company attacks the small settlement at Haun\'s Mill on Shoal Creek, killing seventeen and wounding others; some of the dead were placed in an unfinished well.', sources:[
+    {cat:'local', importance:'landmark', y:1838, m:10, d:30, title:'Haun\'s Mill Massacre', people:[], desc:'Three days after the extermination order, a Missouri militia company attacks the small settlement at Haun\'s Mill on Shoal Creek, killing seventeen and wounding others; some of the dead were placed in an unfinished well.', sources:[
       {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict through the events of late October 1838', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'}
     ], researchNotes:'The documentary record for this event consists largely of survivor affidavits and later petitions to the federal government, collected in the 1839\u201340 Missouri redress petitions, together with Missouri militia correspondence. None of that material is cited here directly, and the single citation given is a retrospective church history rather than a contemporary account of the attack itself. **A better source is needed here.** Given the gravity of the event \u2014 seventeen people killed \u2014 citing only a retrospective church history is inadequate. The survivor affidavits and the 1839\u201340 redress petitions are the records that should carry this entry, and locating them is a priority for the next round of sourcing.'},
     {cat:'local', y:1844, m:6, d:7, title:'Nauvoo Expositor published', people:['William Law'], desc:'Dissidents led by William Law publish the first and only issue of the Nauvoo Expositor, sharply critical of JS. The paper announces itself as a reform effort from within the church.', sources:[
@@ -1780,11 +1837,36 @@
     return '<div class="src-tags">'+bits.join('')+'</div>';
   }
 
+  // Days in each month (index 0 = Jan). Leap years are ignored: at day zoom a
+  // single day is ~22px, so Feb 29 vs. the /28 slot is a sub-pixel difference
+  // not worth the complication, and no entry in this dataset is Feb 29.
+  var MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+  // Convert a (year, month 1-12, day 1-31) to a fractional year, the single
+  // source of truth for vertical position of BOTH rail ticks and entry cards.
+  //
+  // The key correctness point (fixes the ragged month ends seen at day zoom):
+  // a day is placed as a fraction of ITS OWN month's actual length, spread
+  // across that month's 1/12 slot — NOT as a fixed 1/365 of a year. The old
+  // math added (day-1)/365 on top of a 1/12 month slot, so 28-day months left a
+  // gap and 31-day months overflowed into the next month's label. Now day D in
+  // an N-day month sits at (D-1)/N of the way through the month slot, so every
+  // month fills its slot exactly and day ticks are evenly spaced month to month.
+  //
+  // monthlessMid: when there's no month, where to place the entry in the year.
+  // Entries default to mid-year (0.5) so a year-only card sits in the middle of
+  // its year; ticks pass 0 to sit at the year's start.
+  function ymdToFracYear(y, m, d, monthlessMid){
+    if(!m) return y + (monthlessMid ? 0.5 : 0);
+    var monthStart = (m - 1) / 12;               // start of this month within the year
+    var slot = 1 / 12;                            // every month occupies 1/12 of the year's height
+    var dim = MONTH_DAYS[m - 1] || 30;
+    var dayFrac = d ? ((d - 1) / dim) * slot : 0; // day placed within its own month's slot
+    return y + monthStart + dayFrac;
+  }
+
   function fracYear(e){
-    var y = e.y;
-    var m = e.m ? (e.m-1)/12 : 0.5;
-    var d = e.d ? (e.d-1)/365 : 0;
-    return y + m + d;
+    return ymdToFracYear(e.y, e.m || 0, e.d || 0, true);
   }
 
   function dateLabel(e){
@@ -1817,6 +1899,154 @@
   var PADDING_TOP = 40;
   var PADDING_BOTTOM = 60;
 
+  // ---- Zoom scale: signposts, slider mapping, adaptive rail granularity ----
+  // zoom is pxPerYear. The slider is CONTINUOUS but marked with five signposts
+  // (default / year / month / day) at meaningful pxPerYear levels. Day
+  // level is ~18x year level, so a linear slider would cram the deep end into a
+  // sliver of travel; instead the slider position (0..1000) maps to pxPerYear
+  // LOGARITHMICALLY, which spaces the signposts evenly along the track and makes
+  // scrubbing feel consistent everywhere.
+  //
+  // "default" is the current overview (the comfortable whole-life shot), kept as
+  // the leftmost signpost so the tool still opens where it always has. The
+  // labelled stops step progressively inward from there.
+  var ZOOM_MIN = 80;      // the default overview — leftmost slider position (the home view)
+  var ZOOM_MAX = 25000;   // day level — one day ≈ a full card-height + gap (~68px), so two
+                          // events on different days can never overlap. This is what lets the
+                          // old fan mechanism be retired entirely: at max zoom there is simply
+                          // nothing left to fan. The ~830k-px board height this implies is inert —
+                          // tick culling only renders the visible window, and the date picker
+                          // (not scrolling) is how you travel here.
+  var ZOOM_SIGNPOSTS = [
+    { key:'default', label:'',        px: 80    },  // current overview; unlabelled
+    { key:'year',    label:'Year',    px: 480   },
+    { key:'month',   label:'Month',   px: 2400  },
+    { key:'day',     label:'Day',     px: 25000 }
+  ];
+  var SLIDER_RESOLUTION = 1000; // slider runs 0..1000; mapped to px logarithmically
+
+  function sliderToZoom(sliderVal){
+    var t = Math.max(0, Math.min(1, sliderVal / SLIDER_RESOLUTION));
+    return Math.round(ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, t));
+  }
+  function zoomToSlider(px){
+    var clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, px));
+    var t = Math.log(clamped / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN);
+    return Math.round(t * SLIDER_RESOLUTION);
+  }
+
+  // The pxPerYear a given date-precision implies, used by the date picker's Go
+  // so choosing a day zooms to day level, a month to month level, etc.
+  function zoomForPrecision(precision){
+    var sp = ZOOM_SIGNPOSTS.filter(function(s){ return s.key === precision; })[0];
+    return sp ? sp.px : 80;
+  }
+
+  // Choose rail tick granularity from the current zoom so ticks are legible at
+  // every depth: multi-year when zoomed out, then yearly, monthly, daily as you
+  // go deeper. Returns {unit, step} where unit is 'year'|'month'|'day' and step
+  // is how many of that unit between ticks.
+  function railGranularity(pxPerYear){
+    if(pxPerYear >= 5000) return { unit:'day',   step:1 };   // ~22px/day: single days readable
+    if(pxPerYear >= 2600) return { unit:'day',   step:2 };   // every other day
+    if(pxPerYear >= 1100) return { unit:'day',   step:7 };   // weekly ticks
+    if(pxPerYear >= 520)  return { unit:'month', step:1 };   // monthly
+    if(pxPerYear >= 240)  return { unit:'month', step:3 };   // quarterly
+    if(pxPerYear >= 110)  return { unit:'year',  step:1 };   // yearly
+    if(pxPerYear >= 55)   return { unit:'year',  step:2 };
+    if(pxPerYear >= 28)   return { unit:'year',  step:5 };
+    return { unit:'year', step:10 };
+  }
+
+  var MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Position of a rail tick, using the SAME month-aware math as entry cards
+  // (ymdToFracYear) so ticks and cards line up exactly. Ticks sit at the start
+  // of their unit (monthlessMid = false), unlike entries which default to
+  // mid-year when they have no month.
+  function tickFracYear(y, m, d){
+    return ymdToFracYear(y, m || 0, d || 0, false);
+  }
+
+  // Produces the tick list for the rail/gridlines at a given granularity.
+  // Each tick: {fy, label, major}. "major" ticks are heavier (year starts, or
+  // round years) so the eye still finds year boundaries at fine zoom.
+  //
+  // visRange (optional) is {minFy, maxFy}: only ticks within it are generated.
+  // At fine granularity (month/day) over a 50-year span this is essential —
+  // otherwise day-level would emit ~20k DOM nodes for a board you can only see
+  // a sliver of. At coarse (year) granularity the whole span is cheap, so the
+  // clamp is applied everywhere uniformly but only matters when zoomed in.
+  function buildRailTicks(bounds, gran, visRange){
+    var ticks = [];
+    var lo = visRange ? visRange.minFy : -Infinity;
+    var hi = visRange ? visRange.maxFy : Infinity;
+    function inRange(fy){ return fy >= lo && fy <= hi; }
+    var y;
+    if(gran.unit === 'year'){
+      var startY = Math.ceil(bounds.min / gran.step) * gran.step;
+      for(y = startY; y <= bounds.max; y += gran.step){
+        if(!inRange(y)) continue;
+        ticks.push({ fy: y, label: String(y), ty: y, kind: 'year', major: (y % (gran.step*5===0?gran.step:5) === 0) || gran.step >= 5 });
+      }
+    } else if(gran.unit === 'month'){
+      var my0 = Math.max(bounds.min, Math.floor(lo) - 1);
+      var my1 = Math.min(bounds.max, Math.ceil(hi) + 1);
+      for(y = my0; y <= my1; y++){
+        for(var m = 1; m <= 12; m += gran.step){
+          var fyM = tickFracYear(y, m, 0);
+          if(!inRange(fyM)) continue;
+          var majorM = (m === 1);
+          ticks.push({ fy: fyM, label: MONTH_ABBR[m-1], monthLabel: MONTH_ABBR[m-1], ty: y, tmo: m, kind: 'month', major: majorM });
+        }
+      }
+    } else { // day
+      var dy0 = Math.max(bounds.min, Math.floor(lo) - 1);
+      var dy1 = Math.min(bounds.max, Math.ceil(hi) + 1);
+      for(y = dy0; y <= dy1; y++){
+        for(var mo = 1; mo <= 12; mo++){
+          var dim = MONTH_DAYS[mo-1];
+          for(var da = 1; da <= dim; da += gran.step){
+            var fyD = tickFracYear(y, mo, da);
+            if(!inRange(fyD)) continue;
+            var startOfMonth = (da === 1);
+            var label, kind, monthLabel;
+            if(startOfMonth){
+              label = MONTH_ABBR[mo-1]; monthLabel = MONTH_ABBR[mo-1]; kind = 'month';
+            } else if(gran.step === 1){
+              label = String(da); kind = 'day';
+            } else {
+              label = MONTH_ABBR[mo-1] + ' ' + da; kind = 'day';
+            }
+            ticks.push({ fy: fyD, label: label, monthLabel: monthLabel, ty: y, tmo: mo, kind: kind, major: startOfMonth });
+          }
+        }
+      }
+    }
+    return ticks;
+  }
+
+
+  // Every date-to-vertical-position conversion in the app goes through
+  // dateToY(), and every pixel-to-date conversion through yToDate(). Today the
+  // mapping is a plain linear ratio (pxPerYear, driven by the zoom slider), so
+  // these are simple arithmetic. They are centralised here deliberately: an
+  // elastic/density-driven rail was tried (see changelog 54) and reverted for
+  // being too visually destabilising — but the plumbing that made it a
+  // one-place change is kept, so any future alternative scale still swaps in
+  // here alone with no caller needing to know how the mapping works.
+  //
+  // Both take the current bounds and pxPerYear explicitly rather than reading
+  // globals, so they stay pure and testable. yToDate is the exact inverse of
+  // dateToY and MUST remain so — the zoom control relies on round-tripping a
+  // date through both to keep the same point centred as the scale changes.
+  function dateToY(fy, bounds, pxPerYear){
+    return PADDING_TOP + (fy - bounds.min) * pxPerYear;
+  }
+  function yToDate(y, bounds, pxPerYear){
+    return bounds.min + (y - PADDING_TOP) / pxPerYear;
+  }
+
   function minMaxYear(){
     var min = Infinity, max = -Infinity;
     state.entries.forEach(function(e){
@@ -1831,12 +2061,14 @@
     return {min: Math.floor(min)-1, max: Math.ceil(max)+1};
   }
 
+  // Thin wrapper kept so existing call sites read the same; routes through
+  // dateToY so there is still only one mapping implementation.
   function yFor(fy, bounds, pxPerYear){
-    return PADDING_TOP + (fy - bounds.min) * pxPerYear;
+    return dateToY(fy, bounds, pxPerYear);
   }
 
   function totalHeight(bounds, pxPerYear){
-    return PADDING_TOP + (bounds.max - bounds.min) * pxPerYear + PADDING_BOTTOM;
+    return dateToY(bounds.max, bounds, pxPerYear) + PADDING_BOTTOM;
   }
 
   function matchesFilters(e){
@@ -1866,18 +2098,91 @@
     var pxPerYear = uiState.zoom;
     var th = totalHeight(bounds, pxPerYear);
 
-    // Rail
+    // Build the list of tick positions once, shared by the rail and gridlines,
+    // at a granularity chosen from the current zoom (see railGranularity).
+    // At fine zoom, generating ticks for the whole 50-year span would emit tens
+    // of thousands of nodes, so we clamp to the visible viewport plus a margin.
+    var gran = railGranularity(pxPerYear);
+    var boardWrapEl = document.getElementById('board-wrap');
+    var visRange = null;
+    if(gran.unit !== 'year'){
+      var scrollTop = boardWrapEl ? boardWrapEl.scrollTop : 0;
+      var vpH = boardWrapEl ? boardWrapEl.clientHeight : 800;
+      var margin = vpH * 2; // a couple screens of slack so scrolling stays smooth
+      visRange = {
+        minFy: yToDate(scrollTop - margin, bounds, pxPerYear),
+        maxFy: yToDate(scrollTop + vpH + margin, bounds, pxPerYear)
+      };
+    }
+    var ticks = buildRailTicks(bounds, gran, visRange);
+
+    // Rail. Ticks are placed top-to-bottom. Two crowding problems to solve at
+    // day zoom: minor day numbers piling on each other, and minor numbers
+    // colliding with the bold month/year labels (the "Nov 29 / Dec" overlap).
+    // Fix: decide label visibility in a pass that gives MAJOR labels (month
+    // starts, years) absolute priority — a minor label is blanked if it's
+    // within MIN_LABEL_GAP px of ANY major (above or below) or of the previous
+    // shown minor. Tick MARKS always draw; only text is suppressed, so the fine
+    // ruling stays intact.
+    //
+    // Orientation at deep zoom: once no year tick is on screen you can lose
+    // track of the year. So the YEAR is appended to the month label in two
+    // cases — every January (the natural year boundary) and the TOPMOST month
+    // label currently in view — so "Jun 1844" tells you where you are even when
+    // you've scrolled into the middle of a year. Plain months below it stay
+    // uncluttered ("Jul", "Aug") until the next January.
+    var MIN_LABEL_GAP = 15;
+    var MAJOR_GAP = 17; // a little more clearance around the heavier major labels
     rail.innerHTML = '';
     rail.style.height = th + 'px';
-    for(var yr = bounds.min; yr <= bounds.max; yr++){
-      var major = (yr % 5 === 0);
-      var mark = document.createElement('div');
-      mark.className = 'year-mark' + (major ? ' major' : '');
-      mark.style.top = yFor(yr, bounds, pxPerYear) + 'px';
-      mark.textContent = (major || pxPerYear >= 60) ? yr : (yr % 5 === 0 ? yr : '');
-      if(!major && pxPerYear < 55) mark.textContent = '';
-      rail.appendChild(mark);
+    var tickYs = ticks.map(function(t){ return yFor(t.fy, bounds, pxPerYear); });
+    var majorYs = [];
+    ticks.forEach(function(t, i){ if(t.major) majorYs.push(tickYs[i]); });
+    function nearAnyMajor(y){
+      for(var k = 0; k < majorYs.length; k++){
+        if(Math.abs(y - majorYs[k]) < MAJOR_GAP) return true;
+      }
+      return false;
     }
+
+    // Find the topmost month-kind tick within the current viewport; it will
+    // carry the year even if it isn't January.
+    var viewTop = boardWrapEl ? boardWrapEl.scrollTop : 0;
+    var topmostMonthIdx = -1;
+    for(var vi = 0; vi < ticks.length; vi++){
+      if((ticks[vi].kind === 'month') && tickYs[vi] >= viewTop - 2){
+        topmostMonthIdx = vi;
+        break;
+      }
+    }
+
+    var lastShownMinorY = -Infinity;
+    ticks.forEach(function(t, i){
+      var topY = tickYs[i];
+      var mark = document.createElement('div');
+      mark.className = 'year-mark' + (t.major ? ' major' : '');
+      mark.style.top = topY + 'px';
+      // Compute the display label, adding the year to month labels where it aids
+      // orientation (January, or the topmost visible month).
+      var displayLabel = t.label;
+      if(t.kind === 'month'){
+        var wantYear = (t.tmo === 1) || (i === topmostMonthIdx);
+        displayLabel = wantYear ? (t.monthLabel + ' ' + t.ty) : t.monthLabel;
+      }
+      var show;
+      if(t.major){
+        show = !!displayLabel;
+      } else {
+        show = displayLabel && !nearAnyMajor(topY) && (topY - lastShownMinorY) >= MIN_LABEL_GAP;
+      }
+      if(show){
+        mark.textContent = displayLabel;
+        if(!t.major) lastShownMinorY = topY;
+      } else {
+        mark.textContent = '';
+      }
+      rail.appendChild(mark);
+    });
 
     // Clear old columns + gridlines + svg
     Array.prototype.slice.call(boardInner.querySelectorAll('.column, .gridline, #thread-svg')).forEach(function(n){ n.remove(); });
@@ -1887,14 +2192,14 @@
     var visibleCats = orderedCategories();
     var totalColW = visibleCats.reduce(function(sum, c){ return sum + (uiState.collapsedCats[c.id] ? 40 : 258); }, 0);
 
-    // Gridlines (behind columns, spans full width)
-    for(var yr2 = bounds.min; yr2 <= bounds.max; yr2++){
+    // Gridlines (behind columns, spans full width) — same ticks as the rail.
+    ticks.forEach(function(t){
       var g = document.createElement('div');
-      g.className = 'gridline' + (yr2 % 5 === 0 ? ' major' : '');
-      g.style.top = yFor(yr2, bounds, pxPerYear) + 'px';
+      g.className = 'gridline' + (t.major ? ' major' : '');
+      g.style.top = yFor(t.fy, bounds, pxPerYear) + 'px';
       g.style.width = totalColW + 'px';
       boardInner.appendChild(g);
-    }
+    });
 
     // Columns
     visibleCats.forEach(function(cat){
@@ -1951,7 +2256,10 @@
         card.dataset.id = e.id;
         card.draggable = true;
         var fy = positionFracYear(e);
-        card.style.top = yFor(fy, bounds, pxPerYear) + 'px';
+        var baseTop = yFor(fy, bounds, pxPerYear);
+        card.style.top = baseTop + 'px';
+        card.dataset.basetop = baseTop; // pristine date-based position; applyCardStagger reads this, never the mutated style.top
+        card.dataset.importance = e.importance || 'routine'; // landmark|notable|routine — decides which card is frontmost in a stack
         card.style.setProperty('--cat-color', cat.color);
         if(!matchesFilters(e)) card.classList.add('dimmed');
         if(e.id === uiState.selectedId) card.classList.add('selected');
@@ -2035,31 +2343,107 @@
     renderThemeFilter();
   }
 
-  // Cards close enough in time to visually overlap get cascaded to the right
-  // (like a fanned stack of index cards) so the ones underneath stay visible.
-  // Runs fresh on every render, so it self-corrects at any zoom level: cards
-  // that no longer overlap snap back to their normal, unstaggered position.
+  // Cards close enough in time to visually overlap form a "cluster." Overlapping
+  // cards are staggered sideways like a fanned deck of index cards so the ones
+  // underneath stay partly visible, and the top card carries a ⊕N readout badge
+  // saying how many are stacked. The badge is a READOUT, not a control — it
+  // invites zooming in (deep zoom, down to one day per card-height, fully
+  // separates any cluster). The old click-to-fan-out mechanism was retired in
+  // v70 once max zoom became deep enough to make it unnecessary.
+  //
+  // Runs fresh on every render, so it self-corrects at any zoom: as you zoom in
+  // and cards stop overlapping, clusters dissolve and the stagger and badge
+  // simply disappear.
+  // Importance tier -> numeric rank, for deciding which card sits frontmost in
+  // a stack. landmark (3) > notable (2) > routine (1, the default). Read from
+  // the card's stamped dataset. Admin-set per entry; affects stack order only,
+  // never what a reader can reach.
+  var IMPORTANCE_RANK = { landmark: 3, notable: 2, routine: 1 };
+  function importanceRank(card){
+    return IMPORTANCE_RANK[card.dataset.importance] || 1;
+  }
+
   function applyCardStagger(){
     var STAGGER_PX = 16;
     var MAX_DEPTH = 5;
+    // Pristine date position of a card, stamped at render time. Reading this
+    // rather than style.top keeps the pass idempotent — re-running never
+    // compounds, positions are recomputed from scratch every time.
+    function baseOf(card){ return parseFloat(card.dataset.basetop); }
     document.querySelectorAll('.column').forEach(function(col){
       if(col.classList.contains('collapsed')) return;
       var cards = Array.prototype.slice.call(col.querySelectorAll('.entry-card'));
-      if(cards.length < 2) return;
-      cards.sort(function(a,b){ return parseFloat(a.style.top) - parseFloat(b.style.top); });
+      if(cards.length < 1) return;
+      cards.sort(function(a,b){ return baseOf(a) - baseOf(b); });
+
+      // Group cards into clusters by vertical overlap (using pristine tops).
+      var clusters = [];
+      var cur = null;
       var clusterBottom = -Infinity;
-      var depth = 0;
       cards.forEach(function(card){
-        var top = parseFloat(card.style.top);
+        var top = baseOf(card);
         var height = card.offsetHeight;
-        depth = (top < clusterBottom) ? Math.min(depth + 1, MAX_DEPTH) : 0;
-        var z = 200 - depth;
-        if(card.classList.contains('selected') || card.classList.contains('related')) z += 1000;
-        card.style.left = (10 + depth * STAGGER_PX) + 'px';
-        card.style.zIndex = String(z);
+        if(top < clusterBottom && cur){
+          cur.push(card);
+        } else {
+          cur = [card];
+          clusters.push(cur);
+        }
         clusterBottom = Math.max(clusterBottom, top + height);
       });
+
+      clusters.forEach(function(group){
+        // Clear any badge left over from a previous pass.
+        group.forEach(function(card){
+          var old = card.querySelector('.stack-badge');
+          if(old) old.remove();
+        });
+
+        if(group.length < 2){
+          // Not a cluster — sits at its true date position, no stagger.
+          var c = group[0];
+          c.style.top = baseOf(c) + 'px';
+          c.style.left = '10px';
+          c.style.zIndex = (c.classList.contains('selected') || c.classList.contains('related')) ? '1200' : '200';
+          return;
+        }
+
+        // Overlapping cluster. Every card stays anchored to its own date (top);
+        // the stagger is purely horizontal + z-order. The FRONTMOST card is the
+        // highest-importance one (landmark > notable > routine), ties broken by
+        // earliest date — so a scan of a zoomed-out board surfaces the landmark
+        // event of each cluster rather than just whatever happened first. The
+        // frontmost card sits flush (no inset) and carries the ⊕N badge; the
+        // rest fan rightward behind it in date order.
+        var ordered = group.slice().sort(function(a, b){
+          var ia = importanceRank(a), ib = importanceRank(b);
+          if(ia !== ib) return ib - ia;                 // higher importance first
+          return baseOf(a) - baseOf(b);                 // then earliest date
+        });
+        ordered.forEach(function(card, idx){
+          var origTop = baseOf(card);
+          var depth = Math.min(idx, MAX_DEPTH);
+          card.style.top = origTop + 'px';
+          card.style.left = (10 + depth * STAGGER_PX) + 'px';
+          var z = 200 - depth;
+          if(card.classList.contains('selected') || card.classList.contains('related')) z += 1000;
+          card.style.zIndex = String(z);
+        });
+        addStackBadge(ordered[0], group.length);
+      });
     });
+  }
+
+  // Places a readout badge on the top card of an overlapping cluster: "⊕N",
+  // where N is how many cards are stacked underneath. It's a READOUT, not a
+  // control — non-interactive (pointer-events:none in CSS) so card clicks pass
+  // through — inviting the reader to zoom in, where the cluster separates.
+  function addStackBadge(card, total){
+    var badge = document.createElement('span');
+    badge.className = 'stack-badge';
+    badge.title = (total - 1) + ' more here — zoom in to separate';
+    badge.innerHTML = '<span class="sb-glyph">&#8853;</span>' + (total - 1); // ⊕N
+    card.appendChild(badge);
   }
 
   function escapeHtml(s){
@@ -2112,9 +2496,18 @@
     var card = boardInner.querySelector('.entry-card[data-id="'+id+'"]');
     if(!card) return null;
     var col = card.closest('.column');
+    // Read the LOGICAL position that applyCardStagger set (style.top/left),
+    // not offsetTop/offsetLeft — those report the card's mid-transition
+    // position while the fan/collapse animation (.16s) is still running, which
+    // made thread lines point where a card was headed from rather than to.
+    // Falls back to offset* if a style value isn't set for any reason.
+    var topPx = parseFloat(card.style.top);
+    var leftPx = parseFloat(card.style.left);
+    if(isNaN(topPx)) topPx = card.offsetTop;
+    if(isNaN(leftPx)) leftPx = card.offsetLeft;
     return {
-      x: card.offsetLeft + card.offsetWidth/2 + col.offsetLeft,
-      y: card.offsetTop + card.offsetHeight/2
+      x: leftPx + card.offsetWidth/2 + col.offsetLeft,
+      y: topPx + card.offsetHeight/2
     };
   }
 
@@ -2420,6 +2813,14 @@
         '<button class="close-x">&times;</button>'+
         '<h2>'+(isEdit?'Edit entry':'Add entry')+(isEdit && existing.refId ? ' <span class="form-refid">'+escapeHtml(existing.refId)+'</span>' : '')+'</h2>'+
         '<div class="field"><label>Category</label><select id="f_cat">'+catOptions+'</select></div>'+
+        '<div class="field"><label>Importance <span class="field-hint" style="text-transform:none;letter-spacing:0;font-weight:400;">— which card surfaces to the front when events stack at low zoom. Admin only; not shown to viewers.</span></label>'+
+          '<select id="f_importance">'+
+            ['routine','notable','landmark'].map(function(v){
+              var lbl = { routine:'Routine', notable:'Notable', landmark:'Landmark' }[v];
+              var sel = ((existing && existing.importance ? existing.importance : 'routine') === v) ? ' selected' : '';
+              return '<option value="'+v+'"'+sel+'>'+lbl+'</option>';
+            }).join('')+
+          '</select></div>'+
         '<div class="field"><label>Title</label><input type="text" id="f_title" value="'+(existing?escapeHtml(existing.title):'')+'"></div>'+
         '<div class="field" style="margin-bottom:4px;">'+
           '<label style="margin-bottom:2px;">Event date</label>'+
@@ -2626,6 +3027,7 @@
         id: existing ? existing.id : genId('e'),
         refId: existing ? existing.refId : formatRefId(state.nextRefId),
         cat: document.getElementById('f_cat').value,
+        importance: document.getElementById('f_importance').value,
         title: title,
         y: year,
         m: isNaN(month)? undefined : month,
@@ -3206,14 +3608,28 @@
     var oldPxPerYear = uiState.zoom;
     var viewportH = boardWrap.clientHeight;
     var centerPx = boardWrap.scrollTop + viewportH / 2;
-    var centerFy = bounds.min + (centerPx - PADDING_TOP) / oldPxPerYear;
+    var centerFy = yToDate(centerPx, bounds, oldPxPerYear);
 
-    uiState.zoom = parseInt(e.target.value, 10);
+    uiState.zoom = sliderToZoom(parseInt(e.target.value, 10));
+    updateZoomLevelLabel();
     render();
 
-    var newCenterPx = PADDING_TOP + (centerFy - bounds.min) * uiState.zoom;
+    var newCenterPx = dateToY(centerFy, bounds, uiState.zoom);
     boardWrap.scrollTop = Math.max(0, newCenterPx - viewportH / 2);
   });
+
+  // Shows which named level the current zoom is at (or nearest, when between).
+  function updateZoomLevelLabel(){
+    var el = document.getElementById('zoomLevelLabel');
+    if(!el) return;
+    var px = uiState.zoom, best = ZOOM_SIGNPOSTS[0], bestD = Infinity;
+    ZOOM_SIGNPOSTS.forEach(function(s){
+      var d = Math.abs(Math.log(px) - Math.log(s.px));
+      if(d < bestD){ bestD = d; best = s; }
+    });
+    // Only show a label for the named (non-default) levels; blank at/near default.
+    el.textContent = (best.key === 'default') ? '' : best.label;
+  }
   document.getElementById('addEntryBtn').addEventListener('click', function(){ openEntryForm(null); });
   document.getElementById('manageCatsBtn').addEventListener('click', openManageCategories);
   document.getElementById('manageThemesBtn').addEventListener('click', openManageThemes);
@@ -3278,6 +3694,106 @@
   });
 
   window.addEventListener('resize', function(){ drawThreads(minMaxYear(), uiState.zoom); });
+
+  // At fine zoom the rail/gridlines are generated only for the visible window
+  // (see render); as the user scrolls into new territory we re-render so ticks
+  // keep appearing. Debounced, and only active when zoomed past year level
+  // (where the whole span is drawn anyway and no refresh is needed).
+  (function(){
+    var boardWrap = document.getElementById('board-wrap');
+    if(!boardWrap) return;
+    var lastRenderScroll = 0;
+    var scrollTimer = null;
+    boardWrap.addEventListener('scroll', function(){
+      if(railGranularity(uiState.zoom).unit === 'year') return;
+      if(scrollTimer) return;
+      scrollTimer = setTimeout(function(){
+        scrollTimer = null;
+        var vpH = boardWrap.clientHeight;
+        // Re-render after scrolling about a third of a screen. This keeps the
+        // tick window fresh AND keeps the "topmost visible month carries the
+        // year" label current as you scroll into a new month, without
+        // re-rendering on every scroll event. Still well inside the two-screen
+        // tick margin, so ticks never run out before the refresh.
+        if(Math.abs(boardWrap.scrollTop - lastRenderScroll) > vpH / 3){
+          lastRenderScroll = boardWrap.scrollTop;
+          render();
+        }
+      }, 120);
+    });
+  })();
+
+  // --- Zoom signposts + date-jump picker setup ---
+  (function setupZoomAndJump(){
+    // Signpost ticks under the slider (datalist), at each named level's slider
+    // position. Labels on <option> aren't widely rendered, but the tick marks
+    // give the visual signposts the user asked for.
+    var dl = document.getElementById('zoomStops');
+    if(dl){
+      ZOOM_SIGNPOSTS.forEach(function(s){
+        var opt = document.createElement('option');
+        opt.value = zoomToSlider(s.px);
+        if(s.label) opt.label = s.label;
+        dl.appendChild(opt);
+      });
+    }
+    // Month + day selects for the jump picker.
+    var jm = document.getElementById('jumpMonth');
+    if(jm){
+      MONTH_ABBR.forEach(function(mn, i){
+        var o = document.createElement('option'); o.value = (i+1); o.textContent = mn; jm.appendChild(o);
+      });
+    }
+    var jd = document.getElementById('jumpDay');
+    if(jd){
+      for(var d=1; d<=31; d++){ var o=document.createElement('option'); o.value=d; o.textContent=d; jd.appendChild(o); }
+    }
+    // Bound the year field to the actual timeline span, and set its placeholder
+    // to the first year so the number-spinner starts somewhere relevant (it was
+    // defaulting to 1700, well before anything on this timeline). minMaxYear()
+    // pads by a year on each side, so add 1 to land on the first real year.
+    var jy = document.getElementById('jumpYear');
+    if(jy){
+      var mmy = minMaxYear();
+      var firstYear = mmy.min + 1, lastYear = mmy.max - 1;
+      jy.min = firstYear;
+      jy.max = lastYear;
+      jy.placeholder = String(firstYear);
+    }
+    // Reflect the current (default) zoom on the slider + label.
+    var slider = document.getElementById('zoomSlider');
+    if(slider) slider.value = zoomToSlider(uiState.zoom);
+    updateZoomLevelLabel();
+  })();
+
+  // Centers the view on a date and zooms to the depth its precision implies:
+  // year-only -> year level, +month -> month level, +day -> day level.
+  function jumpToDate(y, m, d){
+    if(!y) return;
+    var precision = d ? 'day' : (m ? 'month' : 'year');
+    uiState.zoom = zoomForPrecision(precision);
+    var slider = document.getElementById('zoomSlider');
+    if(slider) slider.value = zoomToSlider(uiState.zoom);
+    updateZoomLevelLabel();
+    render();
+    var bounds = minMaxYear();
+    var fy = tickFracYear(y, m || 0, d || 0);
+    var boardWrap = document.getElementById('board-wrap');
+    var targetPx = dateToY(fy, bounds, uiState.zoom);
+    boardWrap.scrollTop = Math.max(0, targetPx - boardWrap.clientHeight / 2);
+  }
+
+  document.getElementById('jumpGo').addEventListener('click', function(){
+    var y = parseInt(document.getElementById('jumpYear').value, 10);
+    var m = parseInt(document.getElementById('jumpMonth').value, 10) || 0;
+    var d = parseInt(document.getElementById('jumpDay').value, 10) || 0;
+    if(!y){ document.getElementById('jumpYear').focus(); return; }
+    jumpToDate(y, m, d);
+  });
+  // Enter in the year field triggers Go too.
+  document.getElementById('jumpYear').addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter'){ ev.preventDefault(); document.getElementById('jumpGo').click(); }
+  });
 
   render();
 
