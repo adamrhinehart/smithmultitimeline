@@ -1145,6 +1145,15 @@
     .focus-panel.open{ width:78vw; }
     .focus-panel-inner{ width:78vw; }
   }
+  .load-status{
+    padding: 40px 20px;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: .02em;
+  }
+  .load-status.load-error{ color: #8c2e22; }
 </style>
 </head>
 <body>
@@ -1180,18 +1189,11 @@
       </div>
     </label>
     <div class="spacer"></div>
-    <div id="adminControls" style="display:none; gap:8px; align-items:center;">
-      <button class="ghost" id="manageCatsBtn">Manage categories</button>
-      <button class="ghost" id="manageThemesBtn">Manage themes</button>
-      <button class="ghost" id="exportBtn">Export JSON</button>
-      <button class="ghost" id="importBtn">Import JSON</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none">
-      <button id="addEntryBtn">+ Add entry</button>
-    </div>
   </div>
 
   <div id="main-row">
     <div id="board-wrap">
+      <div id="loadStatus" class="load-status">Loading timeline…</div>
       <div id="board-inner">
         <div id="rail"></div>
         <!-- columns injected here -->
@@ -1204,341 +1206,35 @@
   </div>
 
   <footer class="hint" id="hintFooter">
-    <span id="hintFooterText">Click any entry for details and nearby events. Browsing is open to everyone — unlock Admin below to add, edit, or reorganize.</span>
+    <span id="hintFooterText">Click any entry for details and nearby events.</span>
     <span class="footer-actions">
       <button type="button" class="report-flag-btn" id="reportGeneralBtn" title="Report a problem or suggest a correction">&#9873; Report an issue</button>
-      <button id="adminToggleBtn" class="admin-toggle">&#9919; Admin</button>
+      <a href="admin/" class="admin-toggle" id="cmsLoginLink">&#9919; Log in</a>
     </span>
   </footer>
 </div>
 
 <script>
-(function(){
+(async function(){
 
   /* ============================= DATA MODEL ============================= */
 
-  var DEFAULT_PALETTE = ['#7A4B3A','#3F5A6B','#8B6F1F','#4A5940','#5C4A5C','#6E5B3E','#3A5A4A','#7A3F4A','#4A4A6E','#7A6A3A'];
+  // Categories, themes, and all entries/sources now live in Supabase
+  // (project wmsssandsdjpzpripirc) instead of being baked into this file.
+  // See fetchState() below, which reads them through the public_entries /
+  // public_sources views. The full editorial rationale that used to live in
+  // comments here (lane exclusivity, theme tagging, source-provenance model)
+  // is preserved in the project's SCHEMA-AND-SECURITY doc.
 
-  // Lanes are exclusive: an entry belongs to exactly one. The test for placement
-  // is "whose act is this?" — not which lane the event matters most to. Receiving
-  // the plates is a revelatory claim and so sits in Revelations & Scripture, even
-  // though it is biographically enormous; importance does not decide the lane.
-  // An event that genuinely belongs to two spheres gets ONE card, tagged with a
-  // theme — never a second card.
-  //
-  // Ids are the durable identifier: every entry's `cat` field points at one, and
-  // they will become foreign keys if this moves to a database. They are kept
-  // short, lowercase and aligned to the display name. Renaming a *name* is free
-  // at any time; renaming an *id* means rewriting every entry that references it.
-  var DEFAULT_CATEGORIES = [
-    {id:'life', name:'Life & Family', color:'#8B4A3A'},
-    {id:'people', name:'People', color:'#3F5A6B'},
-    {id:'revelations', name:'Revelations & Scripture', color:'#8B6F1F'},
-    {id:'church', name:'Church History', color:'#4A5940'},
-    {id:'legal', name:'Legal Proceedings', color:'#4A4A6E'},
-    {id:'politics', name:'Politics & Government', color:'#3A5A4A'},
-    {id:'local', name:'Local & Regional Events', color:'#5C4A5C'}
-  ];
-  // Curated thematic tags — a cross-cutting lens independent of category.
-  // Unlike categories (which a column belongs to, exclusively), an entry can
-  // carry any number of these at once. Seeded with a few starter themes;
-  // meant to be managed via "Manage themes" and assigned deliberately, not
-  // auto-applied.
-  var DEFAULT_THEMES = [
-    {id:'conflict', name:'Conflict', color:'#8c2e22'},
-    {id:'theological-shift', name:'Theological Shift', color:'#8B6F1F'},
-    {id:'membership-growth', name:'Membership Growth', color:'#4A5940'},
-    {id:'migration-relocation', name:'Migration & Relocation', color:'#4A4A6E'},
-    {id:'persecution-violence', name:'Persecution & Mob Violence', color:'#7A3F4A'},
-    {id:'plural-marriage', name:'Plural Marriage', color:'#6E5B3E'}
-  ];
-
-  // Seed data. Dates are approximate scholarly consensus points for a research starting scaffold —
-  // meant to be corrected, sourced, and expanded as research deepens.
-  var DEFAULT_ENTRIES = [
-    // ---- Life & Family ----
-    {cat:'life', y:1805, m:12, d:23, title:'Born in Sharon, Vermont', people:['Joseph Smith','Lucy Mack Smith'], desc:'Joseph Smith Jr. is born to Joseph Smith Sr. and Lucy Mack Smith.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 1 (states he was born "in the town of Sharon, Windsor County, State of Vermont")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
-      {text:'Lucy Mack Smith, History, 1844–1845 (his mother\'s firsthand family memoir, dictated ~1844–45)', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'}
-    ]},
-    {cat:'life', y:1816, approx:true, title:'Family relocates to western New York', people:['Lucy Mack Smith'], desc:'After crop failures (the "Year Without a Summer") and debt, the Smith family moves to the Palmyra/Manchester area.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 1 (recounts the move "when I was in my tenth year")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
-      {text:'Lucy Mack Smith, History, 1844–1845', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'}
-    ]},
-    {cat:'life', importance:'landmark', y:1827, m:1, d:18, title:'Marries Emma Hale', people:['Emma Hale Smith'], desc:'Marries Emma Hale in South Bainbridge, New York, against her father\'s wishes.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1, p. 8 ("On the eighteenth of January...we were married")', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/8'}
-    ]},
-    {cat:'life', y:1828, m:6, approx:true, title:'Birth and death of son Alvin', people:['Emma Hale Smith'], desc:'First child dies shortly after birth.', sources:[
-      {text:'Lucy Mack Smith, History, 1844–1845, bk. 10 — writes that the baby "was very soon snatched from her arms and borne aloft to the world of spirits"', url:'https://www.josephsmithpapers.org/paper-summary/lucy-mack-smith-history-1844-1845/1'},
-      {text:'Sophia Lewis, Statement, in "Mormonism," Susquehanna Register, and Northern Pennsylvanian, 1 May 1834', url:'https://www.josephsmithpapers.org/paper-summary/revelation-july-1828-dc-3/1'}
-    ], researchNotes:'Lucy Mack Smith was not present at the birth; she wrote this account roughly 16 years later, as Joseph Smith\'s mother. Sophia Lewis published her statement in 1834, about 6 years after the event; she was not a supporter of the Smith family, and her claim to have been present is not corroborated elsewhere.'},
-    {cat:'life', y:1831, m:2, approx:true, title:'Relocates to Kirtland, Ohio', people:['Emma Hale Smith'], desc:'Moves the family household to the growing gathering place in Kirtland.', sources:[
-      {text:'Revelation, 30 December 1830 [D&C 37] — dictated near Fayette, NY, formally directing the move to Ohio', url:'https://www.josephsmithpapers.org/paper-summary/revelation-30-december-1830-dc-37/1'}
-    ]},
-    {cat:'life', y:1832, m:3, d:24, title:'Tarred and feathered in Hiram, Ohio', people:['Sidney Rigdon'], desc:'A mob drags him from his home at night and beats, tars, and feathers him.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (his own detailed account of the mobbing and the sermon he preached the next morning)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
-    ]},
-    {cat:'life', y:1838, m:3, approx:true, title:'Family moves to Far West, Missouri', people:['Emma Hale Smith'], desc:'Relocates amid rising tension between Missouri settlers and church members.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. B-1 [1 Sept. 1834–2 Nov. 1838] — his own manuscript history covering this period', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'}
-    ]},
-    {cat:'life', y:1839, m:5, approx:true, title:'Family settles in Commerce (Nauvoo), Illinois', people:['Emma Hale Smith'], desc:'After escaping Missouri custody, resettles the family on the Mississippi River bend.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. C-1 [2 Nov. 1838–31 July 1842] — his own manuscript history covering the Commerce/Nauvoo settlement', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-c-1-2-november-1838-31-july-1842/1'}
-    ]},
-    {cat:'life', y:1843, approx:true, title:'Plural marriage discussed within inner circle', people:['Emma Hale Smith'], desc:'Practice of plural marriage becomes a source of private tension, including with Emma.', sources:[
-      {text:'Revelation, 12 July 1843 [D&C 132] — JSP\'s annotation, drawing on William Clayton\'s journal and 1874 affidavit, describes the private conversation between JS, Hyrum, and Clayton immediately before the revelation was dictated', url:'https://www.josephsmithpapers.org/paper-summary/revelation-12-july-1843-dc-132/1'}
-    ]},
-    {cat:'life', importance:'notable', y:1844, m:6, d:23, title:'Flees across the Mississippi to Iowa Territory', people:['Hyrum Smith'], desc:'With a fresh posse expected and Governor Ford warning that state troops would occupy Nauvoo until they were surrendered, JS and Hyrum row across the Mississippi River before dawn to the Iowa Territory side, near Montrose — the start of a roughly day-long absence before they returned to face the Carthage warrant.', sources:[
-      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — the eyewitness account of these days, written by a companion present with JS throughout', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844'}
-    ], researchNotes:'On the night of 22–23 June, with a fresh posse expected from Carthage and Governor Ford having warned that he would send state troops to occupy Nauvoo "if it took three years" to find them, JS and Hyrum crossed the Mississippi before daylight, reaching the Iowa Territory side near Montrose. Willard Richards and Orrin Porter Rockwell were with them; the posse that reached Nauvoo that morning did not find them and turned back to Carthage, leaving behind a man named Yates who repeated Ford\'s threat to those remaining in the city.\n\nThis entry covers the crossing itself; the pressure that brought them back within hours is covered in the entry that follows.'},
-    {cat:'life', importance:'notable', y:1844, m:6, d:24, title:'Returns from Iowa and rides to Carthage', people:['Emma Hale Smith','Hyrum Smith'], desc:'Persuaded to come back rather than continue on, JS and Hyrum recross the river to Nauvoo, say goodbye to their families, and ride out with several Nauvoo city officials toward Carthage — arriving and voluntarily submitting to the riot charge the next day.', sources:[
-      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — the eyewitness account of the return and the ride to Carthage', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844'}
-    ], researchNotes:'Within hours of reaching Iowa, pressure mounted for JS to come back. Around 1 p.m. on 23 June, Emma sent Orrin Porter Rockwell across the river to plead with him; Reynolds Cahoon followed with a letter from Emma herself and, by his own account, pressed the case for returning and giving himself up.\n\nJS and Hyrum recrossed to Nauvoo, and on 24 June said goodbye to their families before riding out with several Nauvoo city officials toward Carthage. Willard Richards\' journal is the principal eyewitness record spanning both this day and the days that follow, through the killings on the 27th.\n\nThey reached Carthage and voluntarily submitted to the original riot charge — the same charge covered in the "Warrant issued for JS\'s arrest" entry under Legal Proceedings. What happened next, a second and unrelated charge brought against JS and Hyrum alone, is recorded separately in that same lane.'},
-    {cat:'life', importance:'landmark', y:1844, m:6, d:27, title:'Killed at Carthage Jail', people:['Hyrum Smith'], desc:'Shot and killed by an armed mob while awaiting trial in Carthage, Illinois.', sources:[
-      {text:'Willard Richards, Journal Excerpt, 23–27 June 1844 — written by an eyewitness who was in the room; also published as "Two Minutes in Jail," Times and Seasons, 1 Aug. 1844', url:'https://www.josephsmithpapers.org/paper-summary/appendix-3-willard-richards-journal-excerpt-23-27-june-1844/19'}
-    ]},
-
-    // ---- People ----
-    {cat:'people', y:1825, approx:true, title:'Meets and works for Josiah Stowell', people:['Josiah Stowell'], desc:'Employed by Stowell in Pennsylvania, participating in local treasure-seeking ventures; Stowell later testified in JS\'s defence at the 1826 hearing and remained a supporter.', sources:[
-      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1 \u2014 his own account of being hired by Stowell', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'},
-      {text:'"State of New York v. JS\u2013A," Chenango Co. Justice of the Peace Court, 20 Mar. 1826 \u2014 Stowell testified in JS\'s defence; the only surviving contemporary documents are the fee bills of Justice Albert Neely and Constable Philip De Zeng', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-state-of-new-york-v-js-a/1'}
-    ], researchNotes:'Merged from two entries recording the same relationship from different angles \u2014 "Hired by Josiah Stowell" (then under Personal Life) and "Meets Josiah Stowell" (Acquaintances). Filed under People, since the durable fact is the relationship and the employment is how it began.\n\nOn the 1826 hearing: no trial transcript survives. The two contemporary documents are the fee bills of Justice Albert Neely and Constable Philip De Zeng. Other accounts of what was said were published later \u2014 a letter from Abram W. Benton in 1831, and an account by W. D. Purple in 1877 \u2014 and the two later accounts do not agree with each other on details.\n\nThe hearing itself is a candidate for its own entry under Legal Proceedings if that lane is developed.'},
-    {cat:'people', y:1827, m:4, approx:true, title:'Martin Harris becomes early supporter', people:['Martin Harris'], desc:'A prosperous Palmyra farmer who becomes an early believer and financial backer.', sources:[
-      {text:'"Testimony of Three Witnesses," late June 1829 — Harris\'s own signed statement affirming what he had seen', url:'https://www.josephsmithpapers.org/paper-summary/appendix-4-testimony-of-three-witnesses-late-june-1829/1'}
-    ], researchNotes:'This source is dated June 1829, later than the April 1827 date used above. It is the earliest dated primary record of Harris\'s public role as a witness. No primary source documenting his private support before 1829 has been identified so far.'},
-    {cat:'people', y:1829, m:4, d:7, title:'Oliver Cowdery arrives as scribe', people:['Oliver Cowdery'], desc:'A schoolteacher who becomes primary scribe for the Book of Mormon translation.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (his own account of Cowdery\'s arrival and start as scribe)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
-    ]},
-    {cat:'people', y:1829, m:6, approx:true, title:'David Whitmer family hosts translation', people:['David Whitmer'], desc:'The Whitmer farm in Fayette becomes the site where translation is completed.', sources:[
-      {text:'"Testimony of Three Witnesses," late June 1829 — signed at the Whitmer farm in Fayette, where the translation was completed', url:'https://www.josephsmithpapers.org/paper-summary/appendix-4-testimony-of-three-witnesses-late-june-1829/1'}
-    ]},
-    {cat:'people', y:1830, m:11, approx:true, title:'Sidney Rigdon converts', people:['Sidney Rigdon'], desc:'An influential Campbellite preacher in Ohio who converts and becomes a key counselor.', sources:[
-      {text:'Revelation, 7 December 1830 [D&C 35] — dictated for Rigdon shortly after his arrival in New York, days after his conversion', url:'https://www.josephsmithpapers.org/paper-summary/revelation-7-december-1830-dc-35/1'}
-    ]},
-    {cat:'people', y:1832, m:4, approx:true, title:'Brigham Young joins the church', people:['Brigham Young'], desc:'A Mendon, New York carpenter who is baptized and later leads the Quorum of the Twelve.', sources:[
-      {text:'Brigham Young\'s own 1832 journal entry, as cited in his Joseph Smith Papers biography ("Young, Journal, 9 Apr. 1832")', url:'https://www.josephsmithpapers.org/person/brigham-young'}
-    ]},
-    {cat:'people', y:1837, approx:true, title:'Falling-out after Kirtland Bank failure', people:['Oliver Cowdery','David Whitmer'], desc:'Several early associates, including Cowdery and Whitmer, distance themselves amid the financial collapse.', sources:[
-      {text:'Introduction to the Kirtland Safety Society — JSP\'s documentary account of the bank\'s rise and 1837 failure', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'},
-      {text:'Articles of Agreement for the Kirtland Safety Society Anti-Banking Company, 2 January 1837 — the institution\'s founding document', url:'https://www.josephsmithpapers.org/paper-summary/articles-of-agreement-for-the-kirtland-safety-society-anti-banking-company-2-january-1837/3'}
-    ]},
-    {cat:'people', y:1838, m:4, approx:true, title:'Cowdery and Whitmer leave the church', people:['Oliver Cowdery','David Whitmer'], desc:'Formal separations follow disputes over finances, land, and church discipline in Missouri.', sources:[
-      {text:'Minutes, 12 April 1838 — the Far West high council\'s record of Cowdery\'s excommunication trial', url:'https://www.josephsmithpapers.org/paper-summary/minutes-12-april-1838/1'},
-      {text:'Minutes, 13 April 1838 — the Far West high council\'s record of Whitmer\'s excommunication trial, held the next day', url:'https://www.josephsmithpapers.org/paper-summary/minutes-13-april-1838/1'}
-    ]},
-    {cat:'people', y:1840, approx:true, title:'John C. Bennett joins inner circle', people:['John C. Bennett'], desc:'A physician and organizer who becomes Nauvoo\'s first mayor and a close associate.', sources:[
-      {text:'John Cook Bennett, Joseph Smith Papers biography — documents his 1840 arrival, baptism, and rapid rise in Nauvoo', url:'https://www.josephsmithpapers.org/person/john-cook-bennett'}
-    ]},
-    {cat:'people', y:1842, m:5, approx:true, title:'Break with John C. Bennett', people:['John C. Bennett'], desc:'Bennett is expelled amid scandal and becomes a public critic.', sources:[
-      {text:'The Joseph Smith Papers, Documents, Volume 10: May–August 1842 — introduction covering Bennett\'s May 1842 excommunication and departure', url:'https://www.josephsmithpapers.org/articles/documents-volume-10-may-august-1842'}
-    ]},
-    {cat:'people', y:1844, m:5, approx:true, title:'William Law breaks away', people:['William Law'], desc:'A former close counselor who becomes a leading internal critic, culminating in the Nauvoo Expositor.', sources:[
-      {text:'William Law, Joseph Smith Papers biography — documents his April 1844 excommunication (citing Wilford Woodruff\'s and JS\'s own journals) and his role publishing the Nauvoo Expositor', url:'https://www.josephsmithpapers.org/person/william-law'}
-    ]},
-
-    // ---- Revelations & Scripture ----
-    {cat:'revelations', importance:'landmark', y:1820, m:3, approx:true, recordedY:1832, recordedApprox:true, title:'First Vision, Sacred Grove', people:['Joseph Smith'], desc:'Reports a theophany in the woods near the family farm while seeking which church to join. The earliest known written account is in his own hand from 1832; further, somewhat differing accounts followed in 1835, 1838, and 1842.', sources:[
-      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving account, in his own handwriting', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1', sy:1832, sApprox:true, access:'firsthand'},
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 2–3 (the canonical account, later published as Joseph Smith—History 1:14–20)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/2', sy:1838, sApprox:true, access:'firsthand'},
-      {text:'Orson Pratt, An Interesting Account of Several Remarkable Visions, 1840, p. 5 — the earliest printed account of the First Vision; Pratt was not himself present and narrates what he had heard from JS', url:'https://www.josephsmithpapers.org/paper-summary/appendix-orson-pratt-an-interesting-account-of-several-remarkable-visions-1840/5', sy:1840, access:'secondhand'}
-    ], researchNotes:'This entry is the working demonstration of the source-provenance tags: each source carries a date and a firsthand/secondhand mark, and the timing band and year-gap shown on the card are computed from those. All three surviving accounts are retrospective — the earliest by about twelve years — so a reader filtering for a contemporary account of the First Vision would find none, which is itself a fact about the record. (Note: the earlier scaffold text mentioned 1835 and 1842 accounts as well; only the three sourced here are tagged.)'},
-    {cat:'revelations', importance:'landmark', y:1823, m:9, d:21, recordedY:1832, recordedApprox:true, title:'First visit from the angel Moroni', people:['Joseph Smith'], desc:'Reports the first of repeated nighttime visits from a heavenly messenger describing buried gold plates, beginning four years of annual instruction before the plates were received.', sources:[
-      {text:'Joseph Smith, "History, circa Summer 1832" \u2014 the earliest surviving account, partly in JS\'s own handwriting, which mentions the visits of an angel and the coming forth of the record', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
-      {text:'Oliver Cowdery, "Letter IV," Messenger and Advocate, Feb. 1835 \u2014 written with JS\'s direction and approval, later copied into JS\'s own journal-history', url:'https://www.josephsmithpapers.org/paper-summary/history-1834-1836/69'},
-      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, pp. 4\u20135 \u2014 the fuller narrative, later published as Joseph Smith\u2014History 1:27\u201354', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/4'}
-    ], researchNotes:'Merged from two entries that recorded the same event a day apart in different lanes \u2014 "First visit from the angel Moroni" (then under Personal Life) and "Angelic instruction begins" (Revelations & Scripture). They shared a source and described one occurrence. Filed under Revelations & Scripture because the event is a revelatory claim; its biographical weight is real but does not decide the lane.\n\nThe Joseph Smith Papers notes that almost no original records survive from JS\'s life between 1805 and 1827, so every account of these visits is reminiscent. The two earliest are his own histories of circa summer 1832 and 1838\u201339, written roughly nine and fifteen years afterwards; the first-recorded date is set to 1832 on that basis. JSP dates the first appearance to late in the night of 21\u201322 September 1823.'},
-    {cat:'revelations', importance:'landmark', y:1827, m:9, d:22, title:'Receives the plates from Moroni', people:['Joseph Smith'], desc:'Reports finally receiving the gold plates at the Hill Cumorah.', sources:[
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1 (later published as Joseph Smith—History 1:59)', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/1'}
-    ]},
-    {cat:'revelations', y:1828, m:4, d:12, approx:true, title:'Translation work begins in Harmony, PA', people:['Martin Harris'], desc:'Dictation of the Book of Mormon text begins at Harmony, Pennsylvania, with Martin Harris as scribe. The resulting manuscript — later described as 116 pages — was lost after Harris took it to Palmyra to show his family.', sources:[
-      {text:'Original Manuscript of the Book of Mormon, circa 12 April 1828–circa 1 July 1829 — the surviving dictation manuscript, whose date range begins with this work', url:'https://www.josephsmithpapers.org/paper-summary/original-manuscript-of-the-book-of-mormon-circa-12-april-1828-circa-1-july-1829/1'},
-      {text:'Revelation, July 1828 [D&C 3] — dictated after the loss of the manuscript pages', url:'https://www.josephsmithpapers.org/paper-summary/revelation-july-1828-dc-3/1'},
-      {text:'Preface to the Book of Mormon, circa August 1829 — where the number of lost pages is first specified as 116', url:'https://www.josephsmithpapers.org/paper-summary/preface-to-book-of-mormon-circa-august-1829/1'}
-    ], researchNotes:'Date corrected from January 1828 to circa 12 April 1828. The Joseph Smith Papers date Martin Harris\'s work as scribe to approximately 12 April – 14 June 1828, and title the surviving dictation manuscript "circa 12 April 1828–circa 1 July 1829." The earlier part of 1828 included the trip to show transcribed characters to Charles Anthon in New York, which is a separate event from the start of dictation.\n\nThe figure of 116 pages appears first in the preface to the 1830 Book of Mormon, written about a year after the loss; the pages themselves have never been recovered, so the number rests on that statement.'},
-    {cat:'revelations', y:1829, m:5, d:15, recordedY:1832, recordedApprox:true, title:'Reports receiving the Aaronic Priesthood', people:['Oliver Cowdery'], desc:'JS and Oliver Cowdery report that John the Baptist appeared and conferred the "priesthood of Aaron," authorising them to baptise, after which they baptised each other in the Susquehanna River near Harmony, Pennsylvania.', sources:[
-      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving record, mentioning the reception of priesthood by the ministering of angels; it does not name a date or the messenger', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
-      {text:'Oliver Cowdery, account in Patriarchal Blessings, 1:8–9, probably recorded summer or autumn 1835 — the earliest known record naming "Fryday, the 15th day of May, 1829," Harmony, and the baptisms that followed', url:'https://www.josephsmithpapers.org/site/priesthood-restoration'},
-      {text:'Joseph Smith, History, 1838–1856, vol. A-1, pp. 17–18 — the fullest narrative account', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/23'},
-      {text:'Revelation, circa August 1835 [D&C 27:8–14] — the published 1835 text naming John the Baptist; it is a revised and expanded version of a revelation originally dating to circa August 1830', url:'https://www.josephsmithpapers.org/paper-summary/revelation-circa-august-1835-dc-27/2'}
-    ], researchNotes:'No record made in 1829 describes this event. The earliest surviving reference is JS\'s circa summer 1832 history, which mentions receiving priesthood through the ministering of angels without naming a date or a messenger; the first-recorded date on this entry is set to 1832 on that basis, replacing an earlier value of 1838.\n\nThe earliest known record giving the specific date is Oliver Cowdery\'s account in the Patriarchal Blessings book, probably written in summer or autumn 1835 — about six years after the event. The text naming John the Baptist in D&C 27 is the 1835 published version; the Joseph Smith Papers describes it as a revised and expanded form of a revelation originally dating to circa August 1830.\n\nThe Joseph Smith Papers maintains a finding aid, "Priesthood Restoration," compiling the earliest records describing or alluding to these events; it is cited above as the source for the Patriarchal Blessings text, which is not separately imaged on the site.'},
-    {cat:'revelations', y:1829, m:6, approx:true, recordedY:1832, recordedApprox:true, title:'Reports receiving the Melchizedek Priesthood', people:['Oliver Cowdery'], desc:'A higher authority, later called the Melchizedek Priesthood, is reported as conferred after the Aaronic. The surviving records describe this in two different ways and none of them fixes a date.', sources:[
-      {text:'Joseph Smith, "History, circa Summer 1832" — the earliest surviving record, referring to a confirmation and reception of the high priesthood', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1'},
-      {text:'Minutes and Discourse, 21 April 1834 (Minute Book 1) — JS\'s account of "the revelation of the priesthood of Aaron" and "the revelation of the high priesthood"', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-discourse-21-april-1834/2'},
-      {text:'Letter to the Church, 7 September 1842 [D&C 128:20–21] — JS summarises the restoration of priesthood and keys, mentioning Peter, James and John, and the voice of God in the chamber of "Father Whitmer"', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-of-jesus-christ-of-latter-day-saints-6-september-1842-dc-128/7'},
-      {text:'Joseph Smith Papers, "Priesthood Restoration" — finding aid compiling the earliest records describing or alluding to the restoration of authority', url:'https://www.josephsmithpapers.org/site/priesthood-restoration'}
-    ], researchNotes:'The Joseph Smith Papers states that historical records describing the reception of this higher authority are "generally less specific and more complex" than those for the Aaronic Priesthood, and the surviving accounts differ in kind: some describe Peter, James and John appearing and conferring a higher priesthood, while others describe an earlier event at the home of Peter Whitmer Sr. in which the voice of God commanded JS and Cowdery to ordain one another to the office of elder in a public meeting.\n\nNo surviving record fixes a date for the event. The June 1829 date on this entry is approximate and derives from its placement relative to the Aaronic Priesthood account rather than from a document. As with that entry, the earliest surviving reference is the circa summer 1832 history, so the first-recorded date is set to 1832, replacing an earlier value of 1838.'},
-    {cat:'revelations', importance:'landmark', y:1830, m:3, d:26, title:'Book of Mormon published', people:['Martin Harris'], desc:'Printing is completed at E. B. Grandin\'s shop in Palmyra and copies are first offered for sale, financed by Martin Harris against the mortgage of his farm.', sources:[
-      {text:'Book of Mormon, 1830 — the first edition itself', url:'https://www.josephsmithpapers.org/paper-summary/book-of-mormon-1830/1'},
-      {text:'Agreement with Martin Harris, 16 January 1830 — the arrangement securing Harris\'s financing of the printing', url:'https://www.josephsmithpapers.org/paper-summary/agreement-with-martin-harris-16-january-1830/1'},
-      {text:'Advertisement, Wayne Sentinel (Palmyra, NY), 26 Mar. 1830 — Grandin offers the book for sale, retail and wholesale, at his bookstore'}
-    ], researchNotes:'The publication date rests on the advertisement placed in the Wayne Sentinel, a newspaper printed in the same shop, offering the completed book for sale on 26 March 1830 — a commercial notice rather than a retrospective account, and contemporary with the event.\n\nThe third citation above is given without a link because the newspaper page is not separately imaged on the Joseph Smith Papers site.'},
-    {cat:'revelations', y:1832, m:2, d:16, title:'Vision of the three degrees of glory', people:['Sidney Rigdon'], desc:'JS and Sidney Rigdon report a joint vision of the afterlife while revising the New Testament at the John and Alice Johnson home in Hiram, Ohio, describing three degrees of glory — celestial, terrestrial and telestial. Later canonized as Doctrine and Covenants 76.', sources:[
-      {text:'Vision, 16 February 1832 [D&C 76] — earliest extant copy, inscribed in Revelation Book 2 in the handwriting of Frederick G. Williams with several lines by JS, and signed by Rigdon and JS', url:'https://www.josephsmithpapers.org/paper-summary/vision-16-february-1832-dc-76/1'}
-    ], researchNotes:'The account was copied into Revelation Book 2 probably during February or March 1832, within weeks of the reported vision. Rigdon\'s signature precedes JS\'s on the record, which the Joseph Smith Papers notes is consistent with Rigdon having acted as scribe; the extant record shows no other revelatory text signed in this way. The account was published in The Evening and the Morning Star in July 1832. Philo Dibble, who said he was present in the room, gave accounts in 1877, 1882 and 1892 that differ from one another; his description of how the vision proceeded appears only in the 1892 telling, sixty years after the event.'},
-    {cat:'revelations', y:1832, approx:true, title:'Writes the earliest surviving account of the First Vision', people:['Joseph Smith'], desc:'In a private history he begins in his own hand — with part of the opening penned by his associate Frederick G. Williams — Joseph Smith sets down the earliest known written account of his 1820 vision. It goes unpublished and is unknown outside a small circle for well over a century.', sources:[
-      {text:'Joseph Smith, "History, circa Summer 1832" — the manuscript containing the earliest surviving written account of the First Vision, largely in JS\'s own handwriting', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-summer-1832/1', sy:1832, sApprox:true, access:'firsthand'}
-    ], researchNotes:'This entry and the three that follow (1835, 1839, 1842) split the act of writing or publishing a First Vision account from the 1820 entry itself, which reports the vision as an event. The 1832 and 1835 sources cited there are the same documents referenced here; that overlap is intentional — each pairing shows the two different points in time, event and record, that this timeline distinguishes throughout.\n\nThe 1832 history does not survive in a separate original; it is inscribed in JS\'s Letterbook 1, in his own hand for most of the text (Frederick G. Williams appears to have written the opening cosmological passage). It remained unpublished and largely unknown to Latter-day Saints until historians located and published it in the 1960s.'},
-    {cat:'revelations', y:1832, m:12, d:27, title:'"Olive Leaf" revelation dictated', people:[], desc:'A lengthy revelation dictated at a conference of high priests in Kirtland, connecting light, truth and creation, and directing the elders to hold a solemn assembly, build a house of God, and establish a school for the prophets. Later canonized as Doctrine and Covenants 88.', sources:[
-      {text:'Revelation, 27–28 December 1832 [D&C 88:1–126] — earliest surviving copy, inscribed in Revelation Book 2 in the handwriting of Frederick G. Williams', url:'https://www.josephsmithpapers.org/paper-summary/revelation-27-28-december-1832-dc-881-126/1'},
-      {text:'Letter to William W. Phelps, 11 January 1833 — where JS calls it "the Olieve leaf which we have plucked from the tree of Paradise"', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-william-w-phelps-11-january-1833'}
-    ], researchNotes:'Date corrected from December 1831 to 27–28 December 1832. The Joseph Smith Papers date this revelation to a conference of high priests held in Kirtland on those two days. The original manuscript is not extant; the earliest surviving copy was inscribed in Revelation Book 2 by Frederick G. Williams, probably between late January and late February 1833. A separate revelation of 3 January 1833 (D&C 88:127–137) was later combined with it in print. Part of the text was published in The Evening and the Morning Star in February 1833, and the full text on a broadside in late 1833 or early 1834.'},
-    {cat:'revelations', y:1833, m:2, d:27, title:'Word of Wisdom revelation recorded', people:['Emma Hale Smith'], desc:'A revelation dictated at Kirtland counselling against tobacco, wine, "strong drinks" and "hot drinks," and recommending grains, herbs and fruit, with meat used sparingly. Later canonized as Doctrine and Covenants 89.', sources:[
-      {text:'Revelation, 27 February 1833 [D&C 89] — featured version titled "A Word of Wisdom," copied circa June 1833 into Sidney Gilbert\'s notebook in Gilbert\'s handwriting', url:'https://www.josephsmithpapers.org/paper-summary/revelation-27-february-1833-dc-89/1'}
-    ], researchNotes:'On the circumstances usually given for the revelation: the Joseph Smith Papers attributes the account of heavy tobacco use in the School of the Prophets, and of Emma Smith and others objecting to cleaning tobacco juice from the floor, to Brigham Young. Young did not attend the school when the revelation was recorded and stated he had the information from those who were there; his account is a discourse of 8 February 1868, thirty-five years afterwards.\n\nZebedee Coltrin, who was present, recalled JS coming out of the translating room and reading the revelation to the school. Coltrin\'s recollections were recorded in 1883, fifty years afterwards, and give the number in attendance as twenty-one in one telling and twenty-two in another.\n\nThe earliest surviving text is the copy in Sidney Gilbert\'s notebook, made around June 1833, roughly four months after the date of the revelation.'},
-    {cat:'revelations', y:1835, m:11, d:9, title:'Recounts the First Vision to Robert Matthews', people:['Joseph Smith'], desc:'A visitor introducing himself as "Joshua the Jewish minister" — later identified as Robert Matthews — calls at Joseph Smith\'s home in Kirtland; in the course of their conversation JS relates his early visionary experience, and his clerk records the account into JS\'s journal that same week.', sources:[
-      {text:'Joseph Smith, "Journal, 1835–1836," Nov. 9, 1835, pp. 23–24 — recorded by clerk Warren Parrish; the shortest of Joseph Smith\'s own four written accounts', url:'https://www.josephsmithpapers.org/paper-summary/journal-1835-1836/23', sy:1835, access:'firsthand'}
-    ], researchNotes:'Recorded in the handwriting of clerk Warren Parrish rather than JS himself — counted as firsthand here on the same basis as the 1838/39 and 1842 accounts elsewhere on this timeline, neither of which is in JS\'s own hand either: all three record his own telling, taken down at or near the time.\n\nA few days later JS gave a much briefer account of the same experience to another visitor, Erastus Holmes, also recorded in this same journal. It is not treated as a separate entry here, following the same judgment made in the secondary literature, since it adds no independent detail.'},
-    {cat:'revelations', y:1836, m:4, d:3, title:'Visions in the Kirtland Temple', people:['Oliver Cowdery'], desc:'A week after the temple\'s dedication, JS and Oliver Cowdery report visions behind the lowered veils of the west pulpits — of Jesus Christ accepting the house, and of Moses, Elias and Elijah conferring priesthood keys. Later canonized as Doctrine and Covenants 110.', sources:[
-      {text:'Visions, 3 April 1836 [D&C 110] — recorded in JS\'s journal, pp. 192–193, in the handwriting of Warren A. Cowdery', url:'https://www.josephsmithpapers.org/paper-summary/visions-3-april-1836-dc-110/1'},
-      {text:'Minutes and Prayer of Dedication, 27 March 1836 [D&C 109] — the dedication a week earlier, at which JS prayed that Christ would manifest himself in the house', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-prayer-of-dedication-27-march-1836-dc-109'}
-    ], researchNotes:'Date corrected from 27 March to 3 April 1836. The 27 March date belongs to the temple\'s dedication (D&C 109), which is recorded separately under Church History; the Joseph Smith Papers date these visions a week later.\n\nOn authorship: veils were lowered enclosing the west pulpits, and JS and Oliver Cowdery were secluded behind them. The journal entry was written by Warren A. Cowdery — JS\'s scribe and Oliver Cowdery\'s brother — who was not among the two participants. The Joseph Smith Papers states he recorded it "sometime shortly after" and may have worked from an earlier text no longer extant, or from oral reports by one or both participants. He wrote it in the third person, in contrast to the first-person language used elsewhere in that journal. Neither participant left a firsthand written account at the time; the other near-contemporary record, a letter William W. Phelps wrote to his wife that month describing "a manifestation of the Lord" to JS and Cowdery, is likewise by a non-participant. Willard Richards recast the journal account into the first person by 7 November 1843 for JS\'s multivolume history, and that first-person version was added to the Doctrine and Covenants in 1876.\n\nNo first-recorded date is set on this entry: the earliest known account was written within days of the event, so it is not retrospective in the sense that field tracks. The 1843 recasting is a later version of an already-existing record rather than the first one.'},
-    {cat:'revelations', y:1838, m:4, d:26, title:'Revelation on the church\'s official name', people:[], desc:'A revelation dictated at Far West, Missouri, names the church "The Church of Jesus Christ of Latter Day Saints," directs continued gathering to Far West, and commands a temple be built there. Later canonized as Doctrine and Covenants 115.', sources:[
-      {text:'Revelation, 26 April 1838 [D&C 115] — copied into JS\'s journal (the "Scriptory Book"), pp. 32–34, in the handwriting of George W. Robinson', url:'https://www.josephsmithpapers.org/paper-summary/revelation-26-april-1838-dc-115/1'},
-      {text:'"An Extract of Revelation," Elders\' Journal, Aug. 1838, 52–53 — the revelation as published in the church\'s own newspaper', url:'https://www.josephsmithpapers.org/paper-summary/elders-journal-august-1838/4'}
-    ], researchNotes:'George W. Robinson inscribed the revelation in JS\'s journal at or near the time it was dictated; the Joseph Smith Papers notes the journal appears to have been kept regularly from this entry onward, placing the inscription in late April or early May 1838. The revelation was probably dictated orally to a scribe, as was typical of JS\'s revelations. The name it gives is spelled "Latter Day Saints" in the manuscript; the hyphenated "Latter-day Saints" is a later standardisation.'},
-    {cat:'revelations', y:1839, approx:true, title:'Dictates the account later canonized as scripture', people:['Joseph Smith'], desc:'Beginning a new draft of the church\'s history, Joseph Smith dictates to his scribe the fuller narrative of the vision that will eventually be canonized as Joseph Smith—History in the Pearl of Great Price — the version most familiar to Latter-day Saints today.', sources:[
-      {text:'Joseph Smith, "History, circa June 1839–circa 1841 [Draft 2]," pp. 2–3 — the manuscript draft, in the handwriting of scribe James Mulholland, that became Joseph Smith—History 1:14–20', url:'https://www.josephsmithpapers.org/paper-summary/history-circa-june-1839-circa-1841-draft-2/2', sy:1839, sApprox:true, access:'firsthand'}
-    ], researchNotes:'Flag for you: the 1820 First Vision entry currently cites this same narrative passage as "History, 1838–1856, vol. A-1, pp. 2–3" with a written year of 1838. The Joseph Smith Papers catalogs the actual manuscript containing this text as a separate item, "History, circa June 1839–circa 1841 [Draft 2]" — begun by scribe James Mulholland circa June 1839, part of a multi-year history project that as a whole is described as "begun in 1838." I\'ve dated this entry to the more specific draft (1839) rather than the umbrella project title; you may want to bring the 1820 entry\'s citation into line with that, or leave both as they are — flagging it here rather than changing that entry myself.'},
-    {cat:'revelations', y:1841, m:1, d:19, title:'Revelation directing a baptismal font', people:[], desc:'A revelation designates Nauvoo a cornerstone of Zion and calls for a temple, directing that a font be built so that baptisms for the dead may be performed in the house rather than outside it. Later canonized as Doctrine and Covenants 124.', sources:[
-      {text:'Revelation, 19 January 1841 [D&C 124], p. 5 — the passage directing the font: "For a baptismal font there is not upon the earth, that they, my saints, may be baptized for those who are dead"', url:'https://www.josephsmithpapers.org/paper-summary/revelation-19-january-1841-dc-124/3'}
-    ], researchNotes:'The revelation\'s own language indicates the ordinance was already being performed before this date, outside a temple, and was now to belong to the house: it permits the practice away from a house "only in the days of your poverty, wherein ye are not able to build a house unto me."\n\nThe Joseph Smith Papers records that a temporary wooden font was dedicated in the basement of the unfinished temple on 8 November 1841, so the direction given in January was acted on within the year.\n\nThis entry covers the practice and the font; the separate entry of September 1842 covers its regulation — the requirement that baptisms be witnessed and recorded — which is a distinct development.'},
-    {cat:'revelations', y:1842, m:3, d:1, title:'Publishes the First Vision in the Wentworth Letter', people:['Joseph Smith'], desc:'Responding to a request from Chicago Democrat editor John Wentworth for a sketch of the church\'s history and beliefs, Joseph Smith — newly installed as editor of the Times and Seasons — prints an account of the vision under his own name. It is the first time his own telling of the vision reaches print.', sources:[
-      {text:'Joseph Smith, "Church History," Times and Seasons, Mar. 1, 1842, p. 707 — later known as the "Wentworth letter"', url:'https://www.josephsmithpapers.org/paper-summary/church-history-1-march-1842/2', sy:1842, sm:3, sd:1, access:'firsthand'}
-    ], researchNotes:'The Joseph Smith Papers notes the text lacks a date, salutation or valediction and so is not, strictly, a letter; the "Wentworth letter" name was coined later by church historian B. H. Roberts. It was printed with JS\'s name and editorial endorsement, and JS had by this point taken over as editor of the Times and Seasons — hence firsthand here despite being third-person newspaper prose rather than a private history or journal entry.'},
-    {cat:'revelations', y:1842, m:9, d:7, title:'Baptism for the dead formalized', people:[], desc:'Two letters to the church set out requirements for witnessing and recording baptisms for the dead and give the practice its fullest doctrinal statement. Later canonized as Doctrine and Covenants 127 and 128.', sources:[
-      {text:'Letter to the Church, 7 September 1842 [D&C 128] — expands the instructions of the letter a week earlier and sets out the doctrine at length', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-of-jesus-christ-of-latter-day-saints-6-september-1842-dc-128/7'},
-      {text:'Letter to "All the Saints in Nauvoo," 1 September 1842 [D&C 127] — instructs that a recorder witness each baptism, and promises further instruction; printed in the Times and Seasons, 15 Sept. 1842'}
-    ], researchNotes:'Date moved from an approximate 1841 to 7 September 1842. The 1841 material — the revelation directing a font, and the font\'s dedication that November — is now carried by its own entry, since the introduction of the practice and its later regulation are distinct developments a year and a half apart.\n\nWhat the September 1842 letters supply is the formalisation this entry describes: the requirement that a recorder witness and register each baptism, and the extended doctrinal exposition. The Joseph Smith Papers records that after the 7 September letter was read publicly on 11 September 1842, baptisms resumed at the font that evening and entries began to be recorded that night.\n\nThe second citation above is given without a link because that document was not among those verified.'},
-    {cat:'revelations', y:1843, m:7, d:12, title:'Revelation on eternal marriage recorded', people:['Emma Hale Smith'], desc:'A written revelation on eternal and plural marriage is dictated at Nauvoo and taken down by William Clayton. Later canonized as Doctrine and Covenants 132.', sources:[
-      {text:'Revelation, 12 July 1843 [D&C 132] — the Joseph Smith Papers annotation draws on William Clayton\'s journal and his 1874 affidavit for the circumstances of the dictation', url:'https://www.josephsmithpapers.org/paper-summary/revelation-12-july-1843-dc-132/1'}
-    ], researchNotes:'The same document is cited from the Personal Life entry on plural marriage within the inner circle; the two entries approach it from different threads and share the citation.\n\nOn provenance: the account of the dictation itself comes from William Clayton, who wrote it down. His journal is contemporary; the affidavit elaborating on the circumstances dates to 1874, thirty-one years afterwards. The revelation was not published during JS\'s lifetime.'},
-
-    // ---- Church History ----
-    {cat:'church', importance:'landmark', y:1830, m:4, d:6, title:'Church of Christ organized', people:['Oliver Cowdery','David Whitmer'], desc:'The church is formally organized, with JS and Oliver Cowdery ordaining one another as elders before a meeting of baptized believers.', sources:[
-      {text:'Revelation, 6 April 1830 [D&C 21] — dictated the day the church was organized; copied into Revelation Book 1 circa March 1831', url:'https://www.josephsmithpapers.org/paper-summary/revelation-6-april-1830-dc-21/1'},
-      {text:'Articles and Covenants, circa April 1830 [D&C 20:2\u20133] — states that JS and Cowdery ordained each other elders in the church', url:'https://www.josephsmithpapers.org/paper-summary/articles-and-covenants-circa-april-1830-dc-20/1'},
-      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, p. 37 \u2014 account of the 6 April 1830 meeting', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/43'}
-    ], researchNotes:'The revelation of 6 April 1830 is contemporary with the organization; the surviving copy was inscribed in Revelation Book 1 about eleven months later. The Articles and Covenants, which describe the mutual ordination, date to about the same period and were published in the Painesville Telegraph in April 1831. The narrative in JS\'s manuscript history was composed from 1838 onward.'},
-    {cat:'church', y:1831, m:1, approx:true, title:'Headquarters shifts to Kirtland, Ohio', people:['Sidney Rigdon'], desc:'Church members in New York are directed by revelation to gather to Ohio, and Kirtland becomes the church\'s first major center.', sources:[
-      {text:'Revelation, 30 December 1830 [D&C 37] \u2014 dictated near Fayette, New York, directing the move to Ohio', url:'https://www.josephsmithpapers.org/paper-summary/revelation-30-december-1830-dc-37/1'}
-    ], researchNotes:'The same document is cited from the Personal Life entry on the family\'s relocation to Kirtland; the two entries approach the move from different threads and share the citation. The revelation is dated 30 December 1830 and the gathering followed over the early months of 1831, which is why this entry carries an approximate January 1831 date rather than the date of the document.'},
-    {cat:'church', y:1831, m:7, d:20, title:'Independence, Missouri designated as Zion', people:[], desc:'A revelation identifies Missouri as the land of Zion and Independence as the "centre place," where a city and temple are to be built. Later canonized as Doctrine and Covenants 57.', sources:[
-      {text:'Revelation, 20 July 1831 [D&C 57:1\u20133] \u2014 designates Missouri as the land of Zion and Independence as the centre place', url:'https://www.josephsmithpapers.org/paper-summary/revelation-20-july-1831-dc-57'}
-    ], researchNotes:'Date made specific: the revelation is dated 20 July 1831, where the entry previously carried an approximate July. This designation is the reference point for later entries that describe the Saints being driven from Jackson County and, in 1838, being commanded to build a city of Zion at Far West instead \u2014 the Joseph Smith Papers notes that the 1838 revelation marked a change in plan, since Far West was not the "centre place" named here.'},
-    {cat:'church', y:1834, m:5, d:5, title:'Zion\'s Camp expedition departs', people:['Brigham Young'], desc:'An expedition of roughly 205 men and about 20 women and children marches from Ohio to Missouri to help Saints driven from Jackson County regain their lands. Known at the time as the Camp of Israel.', sources:[
-      {text:'Revelation, 24 February 1834 [D&C 103] \u2014 directs the recruitment of up to five hundred men to go to Missouri; featured copy in Orson Pratt\'s handwriting, made within weeks', url:'https://www.josephsmithpapers.org/paper-summary/revelation-24-february-1834-dc-103/1'},
-      {text:'Minutes, 24 February 1834 \u2014 the Kirtland high council meeting the same day, at which JS volunteered to lead the expedition and was appointed "Commander in Chief of the Armies of Israel"', url:'https://www.josephsmithpapers.org/paper-summary/minutes-24-february-1834'}
-    ], researchNotes:'Date made specific: JS departed Kirtland with most of the volunteers on 5 May 1834, where the entry previously carried an approximate May. A second contingent under Hyrum Smith and Lyman Wight left Michigan Territory the same day; the two joined on 9 June at the Salt River settlement in Missouri.\n\nThe Joseph Smith Papers notes that extant records do not establish whether the revelation was dictated before, during, or after the high council meeting of the same day, so it cannot be determined from the documents whether it prompted the decision to march or affirmed a decision already taken.\n\nThe camp disbanded without regaining the Jackson County lands, its dispersal hastened by an outbreak of cholera.'},
-    {cat:'church', y:1835, m:2, d:14, title:'Quorum of the Twelve Apostles organized', people:['Brigham Young'], desc:'At a conference in Kirtland, the Three Witnesses to the Book of Mormon choose twelve men as apostles, who are then ordained \u2014 acting on a revelation of June 1829 that had directed the choosing of twelve.', sources:[
-      {text:'Minutes, 14 February 1835 \u2014 the record of the conference and the list of the twelve chosen; copied into the "Record of the Transactions of the Twelve" in Orson Hyde\'s handwriting', url:'https://www.josephsmithpapers.org/paper-summary/minutes-14-february-1835/1'},
-      {text:'Record of the Twelve, 14 February\u201328 August 1835 \u2014 the quorum\'s own record, opening with its organization', url:'https://www.josephsmithpapers.org/paper-summary/record-of-the-twelve-14-february-28-august-1835/7'}
-    ], researchNotes:'The minutes were copied into the record book between about 27 February and 2 May 1835, within roughly three months of the meeting, in the handwriting of Orson Hyde \u2014 himself one of the twelve chosen that day, so a participant rather than an outside scribe.\n\nThe minutes state the twelve were chosen and ordained by the Three Witnesses (Oliver Cowdery, David Whitmer and Martin Harris). Heber C. Kimball, also among the twelve, recorded that the First Presidency then laid hands on them to confirm the blessings and ordination; his journal account was written circa 1842\u20131858.'},
-    {cat:'church', importance:'landmark', y:1836, m:3, d:27, title:'Kirtland Temple dedicated', people:[], desc:'The church\'s first temple is completed and dedicated, with a dedicatory prayer later canonized as Doctrine and Covenants 109.', sources:[
-      {text:'Minutes and Prayer of Dedication, 27 March 1836 [D&C 109] \u2014 the dedication service and prayer', url:'https://www.josephsmithpapers.org/paper-summary/minutes-and-prayer-of-dedication-27-march-1836-dc-109'}
-    ], researchNotes:'The dedicatory prayer asks that the house be a place where the Son of Man would manifest himself to his people. The visions reported a week later, on 3 April, are recorded as a separate entry under Revelations & Scripture; the two had previously been merged under this date.'},
-    {cat:'church', y:1837, m:1, d:2, title:'Kirtland Safety Society founded', people:['Sidney Rigdon'], desc:'A church-affiliated financial institution is founded at Kirtland amid a real-estate and currency boom, after the Ohio legislature declined to grant a banking charter.', sources:[
-      {text:'Articles of Agreement for the Kirtland Safety Society Anti-Banking Company, 2 January 1837 \u2014 the institution\'s founding document', url:'https://www.josephsmithpapers.org/paper-summary/articles-of-agreement-for-the-kirtland-safety-society-anti-banking-company-2-january-1837/3'},
-      {text:'Introduction to the Kirtland Safety Society \u2014 the Joseph Smith Papers documentary account of its founding, operation and failure', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'}
-    ], researchNotes:'Date made specific to the date of the founding document, 2 January 1837, where the entry previously carried an approximate January. The same two documents are cited from the Acquaintances entry on the falling-out that followed the society\'s failure.\n\nThe name in the founding document is "Anti-Banking Company," reflecting that the institution operated without the banking charter the legislature had refused.'},
-    {cat:'church', y:1838, m:4, d:26, title:'Church officially renamed', people:[], desc:'The revelation dictated at Far West gives the church its official name, "The Church of Jesus Christ of Latter Day Saints."', sources:[
-      {text:'Revelation, 26 April 1838 [D&C 115] \u2014 copied into JS\'s journal (the "Scriptory Book") in the handwriting of George W. Robinson', url:'https://www.josephsmithpapers.org/paper-summary/revelation-26-april-1838-dc-115/1'}
-    ], researchNotes:'The same document is cited from the Revelations & Scripture entry, which treats it as a revelation; this entry treats the naming as an institutional event. The manuscript spells the name "Latter Day Saints"; the hyphenated form is a later standardisation.'},
-    {cat:'church', importance:'landmark', y:1838, m:11, approx:true, title:'Saints expelled from Missouri', people:[], desc:'Following armed conflict and the state\'s extermination order, church members surrender at Far West and begin leaving Missouri, most crossing into Illinois over the winter of 1838\u201339.', sources:[
-      {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict to the surrender at Far West', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'},
-      {text:'Joseph Smith et al., Letter to the Church and Edward Partridge, 20 March 1839 \u2014 written from Liberty Jail during the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-and-edward-partridge-20-march-1839/1'}
-    ], researchNotes:'The expulsion was a process rather than a single event, running from the surrender at Far West at the start of November 1838 through the following winter, which is why this entry carries an approximate date.\n\nThe order that prompted it \u2014 Governor Lilburn Boggs\'s Executive Order 44 of 27 October 1838 \u2014 is recorded separately under Local & Regional Events, as a state action rather than a church one. JS\'s manuscript history of this period was composed from 1838 onward, in part while he was imprisoned; the Liberty Jail letter is contemporary with the expulsion itself.'},
-    {cat:'church', importance:'landmark', y:1839, m:5, approx:true, title:'Nauvoo, Illinois founded', people:[], desc:'After the expulsion from Missouri, the church purchases land at Commerce on a bend of the Mississippi; the settlement is renamed Nauvoo and becomes the new gathering place.', sources:[
-      {text:'Joseph Smith, History, 1838\u20131856, vol. C-1 [2 Nov. 1838\u201331 July 1842] \u2014 JS\'s manuscript history covering the settlement at Commerce and its renaming', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-c-1-2-november-1838-31-july-1842/1'}
-    ], researchNotes:'The same volume is cited from the Personal Life entry on the family settling at Commerce. The founding was gradual \u2014 land purchases from spring 1839, with the name Nauvoo adopted over the following months \u2014 so the entry carries an approximate date rather than a single document date.'},
-    {cat:'church', y:1841, m:4, d:6, title:'Nauvoo Temple cornerstone laid', people:[], desc:'Cornerstones are laid for a temple on the bluff at Nauvoo, in a public ceremony attended by the Nauvoo Legion and invited guests from around Hancock County.', sources:[
-      {text:'Temple, Nauvoo, Hancock County, Illinois \u2014 Joseph Smith Papers place record, giving the cornerstone laying as 6 April 1841 and summarising construction', url:'https://www.josephsmithpapers.org/place/temple-nauvoo-illinois'},
-      {text:'Revelation, 19 January 1841 [D&C 124] \u2014 the revelation commanding the temple, given some three months earlier', url:'https://www.josephsmithpapers.org/paper-summary/revelation-19-january-1841-dc-124/3'},
-      {text:'"Celebration of the Anniversary of the Church," Times and Seasons, 15 Apr. 1841 \u2014 contemporary report of the ceremony'}
-    ], researchNotes:'The ceremony was deliberately public: word was sent out by newspaper and letter, prominent people from around the county were invited, a stand was built for dignitaries, and the Nauvoo Legion formed a hollow square around the building\'s footprint. It was held on 6 April, the anniversary of the church\'s organization.\n\nThe third citation is given without a link because that newspaper page was not among the documents verified.'},
-    {cat:'church', y:1842, m:3, d:17, title:'Relief Society founded', people:['Emma Hale Smith'], desc:'Twenty women meet in the room above JS\'s store at Nauvoo and are organized as the Female Relief Society of Nauvoo. Emma Hale Smith is elected president and selects two counselors \u2014 the first ecclesiastical positions held by women in the church.', sources:[
-      {text:'Nauvoo Relief Society Minute Book, 17 March 1842 \u2014 minutes of the inaugural meeting', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-relief-society-minute-book/29'},
-      {text:'Nauvoo Relief Society Minute Book \u2014 the volume itself, kept 17 Mar. 1842\u201316 Mar. 1844 in the handwriting of Eliza R. Snow, Phebe Bartholomew Wheeler, Hannah Ells and an unidentified scribe', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-relief-society-minute-book/3'}
-    ], researchNotes:'The minute book was presented to the society by Willard Richards on 17 March 1842, the day of the first meeting, and opens with that meeting\'s minutes. The Joseph Smith Papers notes copying errors in the volume indicating the minutes were probably taken on loose pages and copied in afterwards, so the book is a fair copy rather than the original notes.\n\nJS told the women at that first meeting that "the minutes of your meetings will be precedents for you to act upon \u2014 your Constitution and law," and the Joseph Smith Papers describes these minutes as the only record of teachings he directed specifically to women.\n\nThe often-quoted description of the society being organized "under the priesthood after the pattern of the priesthood" comes from Sarah M. Kimball\'s autobiography, published in the Woman\'s Exponent on 1 September 1883 \u2014 forty-one years after the meeting.\n\nBy the last recorded meeting in March 1844, 1,331 women had enrolled.'},
-    {cat:'church', y:1844, m:8, d:8, title:'Succession crisis begins', people:['Brigham Young','Sidney Rigdon'], desc:'In the weeks after JS\'s death, competing claims to lead the church are put to the Saints at Nauvoo, most prominently by Sidney Rigdon and by Brigham Young on behalf of the Quorum of the Twelve.', sources:[
-      {text:'Sidney Rigdon, Joseph Smith Papers biography \u2014 documents his claim to lead the church after JS\'s death and his subsequent excommunication in 1844', url:'https://www.josephsmithpapers.org/person/sidney-rigdon'},
-      {text:'Brigham Young, Joseph Smith Papers biography \u2014 documents his role as president of the Quorum of the Twelve at JS\'s death', url:'https://www.josephsmithpapers.org/person/brigham-young'},
-      {text:'Thomas Bullock, shorthand notes of the morning meeting of 8 August 1844, transcribed and published as "Sidney Rigdon\'s Plea to the Saints," BYU Studies Quarterly 53, no. 2 (2014): 121\u2013139'}
-    ], researchNotes:'This entry sits at the edge of the Joseph Smith Papers\' scope, which is built around JS\'s own documents and therefore largely ends at his death on 27 June 1844. The two citations above are its biographical records rather than documents of the succession meetings themselves; sourcing this period properly requires other repositories.\n\nDate made specific to 8 August 1844, the day of the meetings at which the competing claims were put to the assembled Saints, where the entry previously carried an approximate August. The fullest contemporary record of the morning meeting is Thomas Bullock\'s shorthand, which was not transcribed and published until 2014; the third citation is given without a link because that publication was not among the documents verified.'},
-
-    // ---- Legal Proceedings ----
-    {cat:'legal', y:1838, m:12, approx:true, title:'Imprisoned in Liberty Jail', people:['Hyrum Smith'], desc:'Held through the winter of 1838–39 on charges stemming from the Missouri conflict.', sources:[
-      {text:'Joseph Smith et al., Letter to the Church and Edward Partridge, 20 March 1839 — written from inside Liberty Jail; excerpts later canonized as D&C 121–123', url:'https://www.josephsmithpapers.org/paper-summary/letter-to-the-church-and-edward-partridge-20-march-1839/1'}
-    ]},
-    {cat:'legal', y:1844, m:6, d:10, title:'Nauvoo Expositor press destroyed', people:['William Law'], desc:'The Nauvoo city council declares the Expositor\'s printing establishment a public nuisance and orders its removal; JS as mayor directs the city marshal to destroy the press, which is done the same day. The act ignites regional outrage and leads directly to JS\'s arrest.', sources:[
-      {text:'Resolution, 10 June 1844 \u2014 the city council\'s declaration that the printing establishment "is a public Nuisance," instructing the mayor to remove it "in such manner as he shall direct"', url:'https://www.josephsmithpapers.org/paper-summary/resolution-10-june-1844/1'},
-      {text:'Mayor\'s Order to Nauvoo City Marshal, 10 June 1844 \u2014 JS\'s order to John P. Greene to destroy the press', url:'https://www.josephsmithpapers.org/paper-summary/mayors-order-to-nauvoo-city-marshal-10-june-1844'},
-      {text:'Minutes, 10 June 1844 \u2014 the city council meeting at which the resolution was debated and passed', url:'https://www.josephsmithpapers.org/paper-summary/minutes-10-june-1844'}
-    ], researchNotes:'Split from a single entry dated 7 June that had compressed publication and destruction into one event three days apart.\n\nOn provenance: the city council\'s original resolution is not extant. It was sent to JS\'s attorneys, Hugh T. Reid and James W. Woods, who requested it on 24 June 1844; the version cited here is a handwritten copy made by William Clayton, JS\'s private clerk, apparently on or about 25 June \u2014 about two weeks after the event, and written on the same leaf as a copy of the mayor\'s order. The Nauvoo Neighbor published a slightly altered form of the resolution on 17 and 19 June, substituting "office" for "establishment."\n\nThe council debated the measure on 8 June and again on 10 June. The Joseph Smith Papers records that all members voted in favour except Councilor Benjamin Warrington, who was not a member of the church and urged instead that the proprietors be given notice to desist and then fined for noncompliance.\n\nThe council\'s authority to declare a nuisance came from the Nauvoo charter of 16 December 1840, recorded separately in this category.\n\nThe riot warrant that followed the next day is now its own entry below, rather than a fourth source here.'},
-    {cat:'legal', y:1844, m:6, d:11, title:'Warrant issued for JS\'s arrest over the Expositor\'s destruction', people:['Joseph Smith'], desc:'On a complaint from Francis M. Higbee, Justice of the Peace Thomas Morrison issues a warrant charging JS and seventeen other men with riot for destroying the Expositor press. JS is arrested the following day and discharged the same day on a writ of habeas corpus from the Nauvoo Municipal Court.', sources:[
-      {text:'Warrant, 11 June 1844, State of Illinois v. JS et al. for Riot \u2014 the charge brought the day after the press was destroyed', url:'https://www.josephsmithpapers.org/paper-summary/warrant-11-june-1844-state-of-illinois-v-js-et-al-for-riot-a'},
-      {text:'Introduction to State of Illinois v. JS et al. for Riot\u2013A [and related documents] \u2014 covers the complaint, the arrest on 12 June, and the habeas corpus discharge the same day', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-state-of-illinois-v-js-et-al-for-riot-a-state-of-illinois-v-js-for-riot-on-habeas-corpus-state-of-illinois-v-h-smith-et-al-on-habeas-corpus-and-state-of-illinois-v-js-et-al-for-riot-b/1'}
-    ], researchNotes:'Split out from the press-destruction entry\'s source list at the user\'s request, since the warrant is a distinct legal act a day later rather than part of destroying the press itself.\n\nMorrison\'s original complaint is apparently not extant; it survives only as summarised in the warrant he issued the same day. The named defendants \u2014 JS and seventeen others \u2014 were arrested on 12 June by Hancock County constable David Bettisworth and immediately petitioned the Nauvoo Municipal Court for habeas corpus, which examined and discharged them that same day. This was one of several rounds of the same riot charge that summer: a later preliminary examination on 25 June bound JS and the others to $500 recognizances, and this Riot\u2013A case unfolded amid the broader unrest that led to the Carthage jail killings on 27 June.'},
-    {cat:'legal', y:1844, m:6, d:25, title:'Charged with treason and jailed at Carthage', people:['Hyrum Smith'], desc:'Hours after voluntarily submitting to the riot charge and most co-defendants being released on $500 recognizances, JS and Hyrum alone are charged with treason \u2014 for having called out the Nauvoo Legion \u2014 and are committed to the Hancock County jail to await trial, on the order of the same justice who heard the riot case.', sources:[
-      {text:'Warrant, 24 June 1844\u2013A [State of Illinois v. JS and H. Smith for Treason] \u2014 sworn on the complaint of Augustine Spencer and Henry O. Norton', url:'https://www.josephsmithpapers.org/paper-summary/warrant-24-june-1844-a-state-of-illinois-v-js-and-h-smith-for-treason/1'},
-      {text:'Mittimus, 25 June 1844 [State of Illinois v. JS and H. Smith for Treason] \u2014 Justice Robert F. Smith\'s order committing JS and Hyrum to the county jail "until discharged by due course of law"', url:'https://www.josephsmithpapers.org/paper-summary/mittimus-25-june-1844-state-of-illinois-v-js-and-h-smith-for-treason/1'}
-    ], researchNotes:'This is the tangled part of the story, and the sources do not fully agree on the sequencing.\n\nThe Joseph Smith Papers catalogs the initiating warrant under 24 June (two versions, "Warrant, 24 June 1844\u2013A" and "\u2013B," likely reflecting separate warrants for JS and for Hyrum), and its own summary of that document notes that most of the riot-case defendants left for Nauvoo "that evening" after posting recognizances, while JS and Hyrum alone were kept in custody on the new charge. But JS\'s own letter to Emma, written from Carthage and dated "25th, 2:30 o\'clock p.m.," describes the two of them as having "been again arrested for treason" that day, and the committal order (Mittimus) is dated 25 June \u2014 so the arrest as JS himself experienced and dated it, and the document that actually sent him to jail, both point to the 25th. This entry is dated to the 25th on that basis, while these notes flag the 24 June warrant date rather than silently resolving the discrepancy.\n\nThe presiding officer for both the riot examination and the treason charge was Robert F. Smith \u2014 a Hancock County justice of the peace who was also captain of the Carthage Greys, the local militia unit later implicated in the killings two days afterward. Governor Ford was in Carthage at the time, had personally assured JS\'s attorneys of a fair examination, and that same morning introduced JS and Hyrum to the assembled militia as "General Joseph Smith and General Hyrum Smith" \u2014 even as, by JS\'s own account, there was "a little mutiny among the Carthage Greys."\n\nThe case did not end on the 25th: further filings followed on 26 June (a second Mittimus, an Order, and a List of Witnesses), with trial itself set for 29 June \u2014 three days after the killings that ended it. JS understood the treason charge as stemming specifically from his having called out the Nauvoo Legion (the city\'s militia) amid the unrest of the preceding weeks.'},
-
-    // ---- Politics & Government ----
-    {cat:'politics', importance:'landmark', y:1838, m:10, d:27, title:'Missouri "Extermination Order"', people:['Lilburn Boggs'], desc:'Governor Lilburn Boggs issues Executive Order 44, directing General John B. Clark that "the Mormons must be treated as enemies, and must be exterminated or driven from the State if necessary for the public peace."', sources:[
-      {text:'Lilburn W. Boggs, Executive Order 44, 27 October 1838 \u2014 digitised scan of the order; the original is held by the Missouri State Archives', url:'https://archive.org/details/BoggsExterminationOrder44'}
-    ], researchNotes:'A state government document rather than a church one, which is why it sits in this category; the resulting expulsion is recorded separately under Church History.\n\nThe order was issued three days after the Battle of Crooked River and, per the accounts, on the basis of reports of that engagement and of rumoured Mormon military plans. It was formally rescinded by Governor Christopher S. Bond on 25 June 1976, nearly 138 years later.\n\nThe citation links to a digitised scan rather than to the Missouri State Archives\' own catalogue record; a direct archival citation would be preferable if this entry is revisited.'},
-    {cat:'politics', y:1839, m:12, approx:true, title:'Illinois politicians court the new settlers', people:[], desc:'Both Whigs and Democrats in Illinois compete for the support of the Saints arriving from Missouri, laying the political groundwork for the unusually broad city charter granted a year later.', sources:[
-      {text:'Act to Incorporate the City of Nauvoo, 16 December 1840 \u2014 the resulting charter; the Joseph Smith Papers notes it drew overwhelming support from both parties, each interested in courting the Mormon vote', url:'https://www.josephsmithpapers.org/paper-summary/act-to-incorporate-the-city-of-nauvoo-16-december-1840/4'}
-    ], researchNotes:'Retitled from "Commerce granted city charter groundwork," which implied a charter action in 1839; no charter was granted that year. What the entry describes is the political courtship preceding the December 1840 act.\n\nThis entry overlaps substantially with the charter entry that follows it and is thinly evidenced on its own \u2014 the date is approximate and no document marks it. **On the kind of entry this is:** like the Second Great Awakening entry, it records a general condition prevailing over a period rather than a specific dated occurrence. No document marks it, the date is approximate, and the citation is the charter that resulted rather than evidence of the courtship itself. It is retained because the political context genuinely bears on why the charter was so broad, but it should be read differently from an entry anchored to a document. Worth considering whether it should instead be merged into the charter entry.'},
-    {cat:'politics', y:1840, m:12, d:16, title:'Nauvoo city charter enacted', people:[], desc:'The Illinois legislature incorporates the City of Nauvoo, granting it a city council, its own militia (the Nauvoo Legion), a university, and a municipal court with the power to issue writs of habeas corpus. The charter took effect in February 1841.', sources:[
-      {text:'Act to Incorporate the City of Nauvoo, 16 December 1840 \u2014 the charter as enacted; printed in the Times and Seasons, 15 Jan. 1841', url:'https://www.josephsmithpapers.org/paper-summary/act-to-incorporate-the-city-of-nauvoo-16-december-1840/4'}
-    ], researchNotes:'Date corrected from 16 December 1841 to 16 December 1840 \u2014 the year had been transposed. The Joseph Smith Papers dates the act to 16 December 1840, with the charter taking effect in February 1841. The entry was retitled from "in effect" to "enacted" to match the date now given; if the effective date is preferred, it would be February 1841.\n\nThe habeas corpus power granted to the municipal court became consequential later, as it was used to resist attempts to extradite JS to Missouri.'},
-
-    // ---- Local & Regional Events ----
-    {cat:'local', y:1816, approx:true, title:'"Year Without a Summer"', people:[], desc:'Aerosols from the 1815 eruption of Mount Tambora in Indonesia cool the global climate. Frost and snow persist through the summer across New England and New York, crops fail, and grain prices soar \u2014 driving migration westward.', sources:[
-      {text:'"1816 \u2014 The Year Without Summer," U.S. National Park Service \u2014 summarises the Tambora eruption and its documented effects across the northeastern states', url:'https://www.nps.gov/articles/000/1816-the-year-without-summer.htm'}
-    ], researchNotes:'Outside the Joseph Smith Papers\' subject matter, so sourced to a federal agency summary rather than a primary document. The NPS account records May frost killing crops in New York, Massachusetts, New Hampshire and Vermont, June snow at Albany, and frost persisting into late August in Virginia.\n\nThis entry is the context for the Personal Life entry on the Smith family\'s move to western New York: crop failure and debt following this season are given there as the reason for the move.'},
-    {cat:'local', y:1817, m:7, d:4, title:'Erie Canal construction begins', people:[], desc:'Ground is broken at Rome, New York for a canal to link the Great Lakes at Buffalo with the Hudson at Albany. Construction draws labour and commerce through the region of western New York later called the "Burned-over District."', sources:[
-      {text:'"Opening of the Erie Canal," Library of Congress research guide \u2014 covers the canal\'s construction and 1825 opening', url:'https://guides.loc.gov/this-month-in-business-history/october/opening-erie-canal'}
-    ], researchNotes:'Date made specific to 4 July 1817, the groundbreaking at Rome, New York, where the entry previously carried an approximate 1817.\n\nOutside the Joseph Smith Papers\' subject matter and sourced to a Library of Congress research guide rather than a primary document. A stronger primary source \u2014 New York State canal commission records, or contemporary newspaper coverage \u2014 would be an improvement if this entry is revisited.'},
-    {cat:'local', y:1820, approx:true, title:'Second Great Awakening intensifies', people:[], desc:'Waves of Protestant revivalism move through western New York, with competing Methodist, Baptist and Presbyterian preaching drawing large numbers in the Palmyra region.', sources:[
-      {text:'Joseph Smith, History, 1838\u20131856, vol. A-1, pp. 2\u20133 \u2014 describes "an unusual excitement on the subject of religion" in the neighbourhood and the competition between denominations', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-a-1-23-december-1805-30-august-1834/2'}
-    ], researchNotes:'This is a regional religious movement spanning years rather than a dated event, so the 1820 date marks the period of greatest local intensity as described in the sources rather than a specific occurrence.\n\nThe citation is a retrospective account written from 1838 onward, by a participant in the events it describes and one with an interest in them. Independent corroboration of revival activity in the Palmyra area in this period exists in local newspaper and denominational records, which are not cited here; adding one would strengthen the entry.\n\n**On the kind of entry this is:** it records a general condition prevailing over a period rather than a specific dated occurrence, so the date is loose by nature and the citation is illustrative rather than documentary. It is included because the religious climate is genuinely relevant context for entries around it, but it should be read differently from an entry anchored to a single document.'},
-    {cat:'local', y:1825, m:10, d:26, title:'Erie Canal completed', people:[], desc:'The canal opens along its full 363 miles, Governor DeWitt Clinton travelling from Buffalo aboard the Seneca Chief. Transport costs collapse, accelerating settlement, commerce and the movement of ideas along its route.', sources:[
-      {text:'"Opening of the Erie Canal," Library of Congress research guide \u2014 covers the 26 October 1825 opening and its economic effects', url:'https://guides.loc.gov/this-month-in-business-history/october/opening-erie-canal'}
-    ], researchNotes:'Date made specific to 26 October 1825, where the entry previously carried an approximate 1825. Outside the Joseph Smith Papers\' subject matter and sourced to a Library of Congress research guide rather than a primary document.'},
-    {cat:'local', y:1833, m:11, d:4, title:'Mob violence in Jackson County, Missouri', people:[], desc:'Armed conflict between settlers and church members culminates in the expulsion of the Saints from Jackson County, most crossing the Missouri River into Clay County.', sources:[
-      {text:'Parley P. Pratt et al., "\u2018The Mormons\u2019 So Called," The Evening and the Morning Star, Extra, Feb. 1834 \u2014 a contemporary published account of the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/parley-p-pratt-et-al-the-mormons-so-called-12-december-1833'},
-      {text:'Revelation, 16\u201317 December 1833 [D&C 101] \u2014 dictated in response to news of the expulsion', url:'https://www.josephsmithpapers.org/paper-summary/revelation-16-17-december-1833-dc-101'}
-    ], researchNotes:'The first citation is a published account written by participants on the church\'s side, within months of the events, and printed in the church\'s own newspaper. It is contemporary but partisan; accounts from the other side of the conflict exist in Missouri county and newspaper records and are not cited here.'},
-    {cat:'local', y:1837, m:5, approx:true, title:'Panic of 1837', people:[], desc:'New York banks suspend specie payments in May 1837, triggering a national financial crisis and a prolonged depression that bankrupted roughly a third of the states \u2014 and that contributed directly to the collapse of the Kirtland Safety Society.', sources:[
-      {text:'Specie Circular, executive order of President Andrew Jackson, 11 July 1836 \u2014 required payment in specie for public land purchases, one of the immediate precipitants'},
-      {text:'Introduction to the Kirtland Safety Society \u2014 the Joseph Smith Papers account of the society\'s failure, which situates it against the wider financial crisis', url:'https://www.josephsmithpapers.org/paper-summary/introduction-to-the-kirtland-safety-society/1'}
-    ], researchNotes:'Outside the Joseph Smith Papers\' subject matter except where it bears on Kirtland. The first citation is given without a link because that document was not among those verified; a financial-history repository such as FRASER at the Federal Reserve Bank of St. Louis would be the natural place to source this entry properly.\n\nThe usual account of the crisis assigns it several causes at once \u2014 the Specie Circular, the Deposit Act of 1836, the expiry of the Second Bank of the United States, and tightening British monetary policy \u2014 rather than any single trigger.'},
-    {cat:'local', importance:'landmark', y:1838, m:10, d:30, title:'Haun\'s Mill Massacre', people:[], desc:'Three days after the extermination order, a Missouri militia company attacks the small settlement at Haun\'s Mill on Shoal Creek, killing seventeen and wounding others; some of the dead were placed in an unfinished well.', sources:[
-      {text:'Joseph Smith, History, 1838\u20131856, vol. B-1 [1 Sept. 1834\u20132 Nov. 1838] \u2014 JS\'s manuscript history covering the Missouri conflict through the events of late October 1838', url:'https://www.josephsmithpapers.org/paper-summary/history-1838-1856-volume-b-1-1-september-1834-2-november-1838/1'}
-    ], researchNotes:'The documentary record for this event consists largely of survivor affidavits and later petitions to the federal government, collected in the 1839\u201340 Missouri redress petitions, together with Missouri militia correspondence. None of that material is cited here directly, and the single citation given is a retrospective church history rather than a contemporary account of the attack itself. **A better source is needed here.** Given the gravity of the event \u2014 seventeen people killed \u2014 citing only a retrospective church history is inadequate. The survivor affidavits and the 1839\u201340 redress petitions are the records that should carry this entry, and locating them is a priority for the next round of sourcing.'},
-    {cat:'local', y:1844, m:6, d:7, title:'Nauvoo Expositor published', people:['William Law'], desc:'Dissidents led by William Law publish the first and only issue of the Nauvoo Expositor, sharply critical of JS. The paper announces itself as a reform effort from within the church.', sources:[
-      {text:'Nauvoo Expositor, 7 June 1844 \u2014 the single issue itself', url:'https://www.josephsmithpapers.org/paper-summary/nauvoo-expositor-7-june-1844'},
-      {text:'Joseph Smith, Journal, 7 June 1844 \u2014 JS\'s own journal entry for the day of publication', url:'https://www.josephsmithpapers.org/paper-summary/journal-december-1842-june-1844-book-4-1-march-22-june-1844/150'},
-      {text:'William Law, Joseph Smith Papers biography \u2014 documents his April 1844 excommunication and his role in the paper', url:'https://www.josephsmithpapers.org/person/william-law'}
-    ], researchNotes:'Split from a single entry that had covered both the publication and the destruction of the press three days later; the two are now recorded separately, since they are distinct acts by different parties.\n\nThe issue itself survives and is imaged by the Joseph Smith Papers, so this entry rests on the document rather than on accounts of it. The same biography of William Law is cited from the Acquaintances entry on his break with JS.'},
-    {cat:'local', y:1846, m:2, approx:true, title:'Mass exodus from Nauvoo begins', people:['Brigham Young'], desc:'Facing renewed hostility and the repeal of the city charter, the Saints begin crossing the Mississippi in February 1846 to leave Illinois, travelling west under Brigham Young\'s leadership.', sources:[
-      {text:'Brigham Young, Joseph Smith Papers biography — documents his leadership of the church following JS\'s death and the westward migration', url:'https://www.josephsmithpapers.org/person/brigham-young'}
-    ], researchNotes:'This event falls outside the Joseph Smith Papers\' scope, which is organised around JS\'s own documents and largely ends at his death in June 1844, so only a biographical record is cited. The primary records for the exodus — Brigham Young\'s office papers, the Camp of Israel journals, and the trail records — sit in other collections.\n\nDate made specific to February 1846, when the first companies crossed the Mississippi, where the entry previously carried only the year.'}
-  ];
-
-  // Bumped to v2 when the category ids changed. A board saved under v1 would
-  // reference ids that no longer exist ('personal', 'acquaint'), and its entries
-  // would silently fail to render — so the old key is abandoned rather than
-  // migrated. Bump this again if category ids are ever reworked.
-  var STORAGE_KEY = 'js_timeline_data_v2';
-  var ADMIN_SESSION_KEY = 'js_timeline_admin_v1';
-
-  // NOTE ON SECURITY: this is a client-side-only file with no server, so this
-  // is a courtesy lock (keeps casual visitors from editing), not real access
-  // control — anyone who opens the page source can find this constant. Change
-  // it to whatever you like before sharing the file with your researchers.
-  var ADMIN_PASSWORD = 'smith1844';
+  // This page is read-only: all editing now happens in the separate admin
+  // CMS, which writes to the same Supabase project. The URL below is not a
+  // secret -- it's the public "street address" of the database, the same way
+  // a web address is public. What it can and can't be used to do is decided
+  // entirely by the server-side security rules (Row Level Security), not by
+  // keeping this URL or key hidden. See the project's SCHEMA-AND-SECURITY doc
+  // for the full explanation.
+  var SUPABASE_URL = 'https://wmsssandsdjpzpripirc.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_iXLB40Zxg7DKxLy70YDrvA_UuefY3ZV';
 
   // ---- Issue reporting ----
   // SET THIS before sharing the file. Submitting a report opens the visitor's
@@ -1563,72 +1259,98 @@
     {short:'Other',              label:'Other'}
   ];
 
-  // Migrates old single source/sourceUrl fields into the newer sources[] array,
-  // so existing saved boards and JSON exports keep working.
-  function normalizeEntry(e){
-    if(!e.sources){
-      e.sources = [];
-      if(e.source || e.sourceUrl){
-        e.sources.push({text: e.source || '', url: e.sourceUrl || ''});
+  // Reads categories, themes, entries and sources from Supabase. Entries and
+  // sources come through the public_entries / public_sources views, which
+  // hand back only reader-facing columns (no editor notes, no review
+  // history) regardless of what this page asks for -- that filtering happens
+  // on the server, not here. See SCHEMA-AND-SECURITY.md.
+  function supaFetch(pathAndQuery){
+    return fetch(SUPABASE_URL + '/rest/v1/' + pathAndQuery, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
       }
+    }).then(function(res){
+      if(!res.ok){
+        throw new Error('Request to ' + pathAndQuery + ' failed (HTTP ' + res.status + ')');
+      }
+      return res.json();
+    });
+  }
+
+  function fetchState(){
+    return Promise.all([
+      supaFetch('categories?select=id,name,color,sort_order&order=sort_order.asc'),
+      supaFetch('themes?select=id,name,color'),
+      supaFetch('public_entries?select=*'),
+      supaFetch('public_sources?select=*&order=entry_id.asc,sort_order.asc')
+    ]).then(function(results){
+      var categories = results[0];
+      var themes = results[1];
+      var rawEntries = results[2];
+      var rawSources = results[3];
+
+      var sourcesByEntry = {};
+      rawSources.forEach(function(s){
+        if(!sourcesByEntry[s.entry_id]) sourcesByEntry[s.entry_id] = [];
+        sourcesByEntry[s.entry_id].push({
+          text: s.text,
+          url: s.url || '',
+          sy: s.sy,
+          sm: s.sm,
+          sd: s.sd,
+          sApprox: !!s.s_approx,
+          access: s.access || ''
+        });
+      });
+
+      // Archived cards are left out of ordinary browsing. Nothing can be
+      // archived yet -- that's an admin CMS action and the CMS doesn't exist
+      // yet -- so this filter is dormant for now, not currently removing
+      // anything. It's here so the viewer already behaves correctly the
+      // moment archiving becomes possible, rather than needing a return trip
+      // to this file later.
+      var entries = rawEntries
+        .filter(function(e){ return !e.is_archived; })
+        .map(function(e){
+          return {
+            id: e.id,
+            refId: e.ref_id,
+            cat: e.category_id,
+            importance: e.importance,
+            title: e.title,
+            desc: e.description,
+            y: e.y, m: e.m, d: e.d, approx: !!e.approx,
+            recordedY: e.recorded_y, recordedM: e.recorded_m, recordedD: e.recorded_d,
+            recordedApprox: !!e.recorded_approx,
+            people: e.people || [],
+            themes: e.themes || [],
+            researchNotes: e.research_notes,
+            isFlagged: !!e.is_flagged,
+            flagReason: e.flag_reason,
+            sources: sourcesByEntry[e.id] || []
+          };
+        });
+
+      return {categories: categories, themes: themes, entries: entries};
+    });
+  }
+
+  var state;
+  try{
+    state = await fetchState();
+  }catch(err){
+    console.error('Failed to load timeline data from Supabase:', err);
+    var loadStatusEl = document.getElementById('loadStatus');
+    if(loadStatusEl){
+      loadStatusEl.textContent = 'Could not load the timeline. Please check your connection and reload the page.';
+      loadStatusEl.classList.add('load-error');
     }
-    delete e.source;
-    delete e.sourceUrl;
-    if(!Array.isArray(e.themes)) e.themes = [];
-    return e;
+    return; // Nothing below this point can run without data.
   }
+  var loadStatusDone = document.getElementById('loadStatus');
+  if(loadStatusDone) loadStatusDone.remove();
 
-  // Short, stable reference codes (ID-001, ID-002, ...) for pointing at a
-  // specific data point without spelling out its title — handy for a future
-  // backend, but also just for talking about "ID-014" instead of a long name.
-  // Numbers are never reused, even if that entry is later deleted, so a
-  // reference stays meaningful once it's been assigned.
-  function formatRefId(n){
-    var s = String(n);
-    while(s.length < 3) s = '0' + s;
-    return 'ID-' + s;
-  }
-  function ensureRefIds(st){
-    if(typeof st.nextRefId !== 'number' || isNaN(st.nextRefId)) st.nextRefId = 1;
-    var maxSeen = 0;
-    st.entries.forEach(function(e){
-      if(e.refId){
-        var m = /ID-(\d+)/.exec(e.refId);
-        if(m){ var n = parseInt(m[1], 10); if(n > maxSeen) maxSeen = n; }
-      }
-    });
-    if(st.nextRefId <= maxSeen) st.nextRefId = maxSeen + 1;
-    st.entries.forEach(function(e){
-      if(!e.refId){
-        e.refId = formatRefId(st.nextRefId);
-        st.nextRefId++;
-      }
-    });
-    return st;
-  }
-
-  function loadState(){
-    try{
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        var parsed = JSON.parse(raw);
-        if(parsed && parsed.categories && parsed.entries){
-          parsed.entries.forEach(normalizeEntry);
-          ensureRefIds(parsed);
-          // Back-compat: boards saved before themes existed won't have this key.
-          if(!Array.isArray(parsed.themes)) parsed.themes = DEFAULT_THEMES.slice();
-          return parsed;
-        }
-      }
-    }catch(e){}
-    // Build fresh from defaults
-    var entries = DEFAULT_ENTRIES.map(function(e, i){
-      return normalizeEntry(Object.assign({id:'seed-'+i}, e));
-    });
-    return ensureRefIds({categories: DEFAULT_CATEGORIES.slice(), themes: DEFAULT_THEMES.slice(), entries: entries});
-  }
-
-  var state = loadState();
   var uiState = {
     collapsedCats: {},
     search: '',
@@ -1640,12 +1362,11 @@
     threadOn: false,
     positionBy: 'event',
     // Visitor's own on-screen column order — anyone can drag columns to
-    // rearrange them for their own navigation. Intentionally NOT saved to
-    // board state/localStorage, so it resets to the default order on refresh.
+    // rearrange them for their own navigation. Intentionally NOT saved
+    // anywhere, so it resets to the default order on refresh.
     colOrder: null
   };
   var dragCatId = null;
-  var isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1');
 
   /* ============================= FOCUS WORKSPACE ============================= */
   // A personal, local workspace — pin entries here to build your own thread or
@@ -1716,30 +1437,6 @@
         if(fa !== fb) return fa - fb;
         return a.title.localeCompare(b.title);
       });
-  }
-
-  function saveState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-
-  function nextColor(){
-    var used = state.categories.map(function(c){return c.color;});
-    for(var i=0;i<DEFAULT_PALETTE.length;i++){
-      if(used.indexOf(DEFAULT_PALETTE[i]) === -1) return DEFAULT_PALETTE[i];
-    }
-    return DEFAULT_PALETTE[used.length % DEFAULT_PALETTE.length];
-  }
-
-  function nextThemeColor(){
-    var used = state.themes.map(function(t){return t.color;});
-    for(var i=0;i<DEFAULT_PALETTE.length;i++){
-      if(used.indexOf(DEFAULT_PALETTE[i]) === -1) return DEFAULT_PALETTE[i];
-    }
-    return DEFAULT_PALETTE[used.length % DEFAULT_PALETTE.length];
-  }
-
-  function genId(prefix){
-    return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
   }
 
   function catById(id){
@@ -2224,7 +1921,6 @@
         '<div class="meta-row">'+
         '<span class="col-controls">'+
           '<button class="collapse-btn" data-collapse="'+cat.id+'" title="'+(isCollapsed?'Expand':'Collapse')+'">'+(isCollapsed?'&#9656;':'&#9666;')+'</button>'+
-          (isAdmin ? '<button class="subtle add-in-col" data-cat="'+cat.id+'">+ add</button>' : '')+
         '</span></div>';
       col.appendChild(header);
 
@@ -2656,8 +2352,6 @@
           }).join('')+'</div></div>' : '')+
         '<div class="actions">'+
           '<button class="ghost focus-pin-action'+(isPinned(e.id)?' pinned':'')+'" id="focusPinBtn">'+focusPinLabel(isPinned(e.id))+'</button>'+
-          (isAdmin ? '<button id="editEntryBtn">Edit</button>'+
-          '<button class="ghost" id="deleteEntryBtn">Delete</button>' : '')+
         '</div>'+
         // Marks the shift from describing this entry to navigating to others.
         '<hr class="panel-rule">'+
@@ -2675,6 +2369,10 @@
           '<summary>Additional Notes</summary>'+
           '<div class="notes-details-body">'+escapeHtml(e.researchNotes)+'</div>'+
         '</details>' : '')+
+        // Calm, not alarming: a card that's under review stays fully visible
+        // and readable, just contextualized -- never hidden or blocked.
+        (e.isFlagged ? '<div class="field under-review-note"><span class="retro-note">&#9888; Under review'+
+          (e.flagReason ? ' — '+escapeHtml(e.flagReason) : '')+'</span></div>' : '')+
         '<div class="entry-refid-bar">'+
           '<button type="button" class="report-flag-btn" id="reportEntryBtn" title="Report an issue with this entry">&#9873; Report</button>'+
           '<span class="entry-refid">'+escapeHtml(e.refId||'')+'</span>'+
@@ -2769,26 +2467,6 @@
       ev.currentTarget.classList.toggle('pinned', nowPinned);
       ev.currentTarget.innerHTML = focusPinLabel(nowPinned);
     });
-    if(isAdmin){
-      overlay.querySelector('#editEntryBtn').addEventListener('click', function(){
-        closeOverlay(overlay, false);
-        openEntryForm(e);
-      });
-      overlay.querySelector('#deleteEntryBtn').addEventListener('click', function(){
-        if(confirm('Delete "'+e.title+'"? This cannot be undone.')){
-          state.entries = state.entries.filter(function(x){ return x.id !== e.id; });
-          saveState();
-          if(isPinned(e.id)){
-            focusState.ids = focusState.ids.filter(function(id){ return id !== e.id; });
-            saveFocusState();
-            renderFocusList();
-          }
-          uiState.selectedId = null;
-          closeOverlay(overlay, true);
-          render();
-        }
-      });
-    }
   }
 
 
@@ -2797,408 +2475,9 @@
     if(deselect){ uiState.selectedId = null; render(); }
   }
 
-  /* ============================= ADD / EDIT ENTRY FORM ============================= */
-
-  function openEntryForm(existing){
-    if(!isAdmin) return;
-    var isEdit = !!existing;
-    var overlay = document.createElement('div');
-    overlay.className = 'overlay center';
-    var catOptions = state.categories.map(function(c){
-      return '<option value="'+c.id+'" '+(existing&&existing.cat===c.id?'selected':'')+'>'+escapeHtml(c.name)+'</option>';
-    }).join('');
-
-    overlay.innerHTML =
-      '<div class="panel modal panel-relative" style="width:480px;">'+
-        '<button class="close-x">&times;</button>'+
-        '<h2>'+(isEdit?'Edit entry':'Add entry')+(isEdit && existing.refId ? ' <span class="form-refid">'+escapeHtml(existing.refId)+'</span>' : '')+'</h2>'+
-        '<div class="field"><label>Category</label><select id="f_cat">'+catOptions+'</select></div>'+
-        '<div class="field"><label>Importance <span class="field-hint" style="text-transform:none;letter-spacing:0;font-weight:400;">— which card surfaces to the front when events stack at low zoom. Admin only; not shown to viewers.</span></label>'+
-          '<select id="f_importance">'+
-            ['routine','notable','landmark'].map(function(v){
-              var lbl = { routine:'Routine', notable:'Notable', landmark:'Landmark' }[v];
-              var sel = ((existing && existing.importance ? existing.importance : 'routine') === v) ? ' selected' : '';
-              return '<option value="'+v+'"'+sel+'>'+lbl+'</option>';
-            }).join('')+
-          '</select></div>'+
-        '<div class="field"><label>Title</label><input type="text" id="f_title" value="'+(existing?escapeHtml(existing.title):'')+'"></div>'+
-        '<div class="field" style="margin-bottom:4px;">'+
-          '<label style="margin-bottom:2px;">Event date</label>'+
-          '<div class="field-hint">When the event itself happened.</div>'+
-        '</div>'+
-        '<div class="row3">'+
-          '<div class="field"><label>Year</label><input type="text" id="f_year" value="'+(existing?existing.y:'')+'" placeholder="1830"></div>'+
-          '<div class="field"><label>Month (opt.)</label><input type="text" id="f_month" value="'+(existing&&existing.m?existing.m:'')+'" placeholder="1-12"></div>'+
-          '<div class="field"><label>Day (opt.)</label><input type="text" id="f_day" value="'+(existing&&existing.d?existing.d:'')+'" placeholder="1-31"></div>'+
-        '</div>'+
-        '<div class="field"><label><input type="checkbox" id="f_approx" '+(existing&&existing.approx?'checked':'')+' style="width:auto;"> Approximate date</label></div>'+
-        '<div class="field" style="margin-bottom:4px; margin-top:6px;">'+
-          '<label style="margin-bottom:2px;">First recorded &mdash; optional</label>'+
-          '<div class="field-hint">When the <em>earliest known</em> account of this event was written down or told — not the date of whichever source you cite below, which the citation itself should state. Leave blank when the event was recorded at the time it happened.<br>'+
-            '<span class="eg">e.g. the First Vision: event 1820, first recorded 1832.</span></div>'+
-        '</div>'+
-        '<div class="row3">'+
-          '<div class="field"><label>Year</label><input type="text" id="f_ryear" value="'+(existing&&existing.recordedY?existing.recordedY:'')+'" placeholder="e.g. 1838"></div>'+
-          '<div class="field"><label>Month (opt.)</label><input type="text" id="f_rmonth" value="'+(existing&&existing.recordedM?existing.recordedM:'')+'" placeholder="1-12"></div>'+
-          '<div class="field"><label>Day (opt.)</label><input type="text" id="f_rday" value="'+(existing&&existing.recordedD?existing.recordedD:'')+'" placeholder="1-31"></div>'+
-        '</div>'+
-        '<div class="field"><label><input type="checkbox" id="f_rapprox" '+(existing&&existing.recordedApprox?'checked':'')+' style="width:auto;"> Approximate recorded date</label></div>'+
-        '<div class="field"><label>People involved</label>'+
-          '<div class="tag-input" id="peopleTagInput">'+
-            '<div class="tag-chips" id="peopleChips"></div>'+
-            '<input type="text" id="peopleTextInput" placeholder="Type a name, press Enter or comma…" autocomplete="off">'+
-            '<div class="tag-suggestions" id="peopleSuggestions" style="display:none;"></div>'+
-          '</div>'+
-        '</div>'+
-        '<div class="field"><label>Themes</label>'+
-          '<div class="theme-select-row" id="themeSelectRow"></div>'+
-        '</div>'+
-        '<div class="field"><label>Notes</label><textarea id="f_desc">'+(existing?escapeHtml(existing.desc||''):'')+'</textarea></div>'+
-        '<div class="field"><label>Sources / citations</label>'+
-          '<div id="sourceRows"></div>'+
-          '<button type="button" class="ghost" id="addSourceRowBtn" style="font-size:11.5px; padding:5px 10px;">+ Add another source</button>'+
-        '</div>'+
-        '<div class="field"><label>Additional Notes (optional)</label>'+
-          '<textarea id="f_researchnotes" placeholder="Provenance and context: when a source was written relative to the event, who wrote it, their relationship to Joseph Smith, whether other accounts agree or differ. State facts, not conclusions — let readers judge for themselves. Collapsed by default; for collaborators, not the main view.">'+(existing?escapeHtml(existing.researchNotes||''):'')+'</textarea>'+
-        '</div>'+
-        '<div class="actions">'+
-          '<button id="saveEntryBtn">'+(isEdit?'Save changes':'Add entry')+'</button>'+
-          '<button class="ghost" id="cancelEntryBtn">Cancel</button>'+
-        '</div>'+
-      '</div>';
-    document.body.appendChild(overlay);
-
-    // People-involved tag input with autocomplete against everyone already used elsewhere
-    var peopleList = (existing && existing.people) ? existing.people.slice() : [];
-    var knownPeople = allPeople();
-    var peopleChipsEl = overlay.querySelector('#peopleChips');
-    var peopleTextInput = overlay.querySelector('#peopleTextInput');
-    var peopleSuggEl = overlay.querySelector('#peopleSuggestions');
-
-    function renderPeopleChips(){
-      peopleChipsEl.innerHTML = peopleList.map(function(p, i){
-        return '<span class="tag-chip">'+escapeHtml(p)+'<button type="button" class="tag-chip-remove" data-idx="'+i+'">&times;</button></span>';
-      }).join('');
-      peopleChipsEl.querySelectorAll('.tag-chip-remove').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          peopleList.splice(parseInt(btn.dataset.idx,10), 1);
-          renderPeopleChips();
-        });
-      });
-    }
-    renderPeopleChips();
-
-    function addPerson(name){
-      name = name.trim();
-      if(!name) return;
-      var already = peopleList.some(function(p){ return p.toLowerCase() === name.toLowerCase(); });
-      if(!already) peopleList.push(name);
-      peopleTextInput.value = '';
-      peopleSuggEl.style.display = 'none';
-      peopleSuggEl.innerHTML = '';
-      renderPeopleChips();
-      peopleTextInput.focus();
-    }
-
-    function updatePeopleSuggestions(){
-      var val = peopleTextInput.value.trim().toLowerCase();
-      if(!val){ peopleSuggEl.style.display = 'none'; peopleSuggEl.innerHTML=''; return; }
-      var matches = knownPeople.filter(function(p){
-        return p.toLowerCase().indexOf(val) !== -1 && !peopleList.some(function(existingP){ return existingP.toLowerCase()===p.toLowerCase(); });
-      }).slice(0, 6);
-      if(!matches.length){ peopleSuggEl.style.display = 'none'; peopleSuggEl.innerHTML=''; return; }
-      peopleSuggEl.innerHTML = matches.map(function(p){ return '<div class="tag-suggestion" data-name="'+escapeHtml(p)+'">'+escapeHtml(p)+'</div>'; }).join('');
-      peopleSuggEl.style.display = 'block';
-      peopleSuggEl.querySelectorAll('.tag-suggestion').forEach(function(item){
-        item.addEventListener('mousedown', function(ev){
-          ev.preventDefault(); // keep focus so blur doesn't hide the list first
-          addPerson(item.dataset.name);
-        });
-      });
-    }
-    peopleTextInput.addEventListener('input', updatePeopleSuggestions);
-    peopleTextInput.addEventListener('keydown', function(ev){
-      if(ev.key === 'Enter' || ev.key === ','){
-        ev.preventDefault();
-        addPerson(peopleTextInput.value);
-      }else if(ev.key === 'Backspace' && peopleTextInput.value === '' && peopleList.length){
-        peopleList.pop();
-        renderPeopleChips();
-      }
-    });
-    peopleTextInput.addEventListener('blur', function(){
-      setTimeout(function(){ peopleSuggEl.style.display = 'none'; }, 120);
-    });
-
-    // Themes — toggle chips drawn from the curated list (managed separately
-    // via "Manage themes"); an entry can hold any number of them.
-    var entryThemes = (existing && existing.themes) ? existing.themes.slice() : [];
-    var themeSelectRowEl = overlay.querySelector('#themeSelectRow');
-    function renderThemeChips(){
-      if(!(state.themes||[]).length){
-        themeSelectRowEl.innerHTML = '<span class="theme-empty-note">No themes yet — add some via "Manage themes" in the toolbar.</span>';
-        return;
-      }
-      themeSelectRowEl.innerHTML = state.themes.map(function(t){
-        var sel = entryThemes.indexOf(t.id) !== -1;
-        return '<span class="theme-toggle-chip'+(sel?' selected':'')+'" data-id="'+t.id+'" style="--theme-color:'+t.color+'">'+
-          '<span class="dot" style="background:'+t.color+'"></span>'+escapeHtml(t.name)+'</span>';
-      }).join('');
-      themeSelectRowEl.querySelectorAll('.theme-toggle-chip').forEach(function(chip){
-        chip.addEventListener('click', function(){
-          var id = chip.dataset.id;
-          var i = entryThemes.indexOf(id);
-          if(i === -1) entryThemes.push(id); else entryThemes.splice(i, 1);
-          renderThemeChips();
-        });
-      });
-    }
-    renderThemeChips();
-
-    var sourceRowsEl = overlay.querySelector('#sourceRows');
-    function addSourceRow(src){
-      src = src || {};
-      var row = document.createElement('div');
-      row.className = 'source-block';
-      function accOpt(v,label){ return '<option value="'+v+'"'+(src.access===v?' selected':'')+'>'+label+'</option>'; }
-      row.innerHTML =
-        '<div class="source-row">'+
-          '<input type="text" class="src-text" placeholder="Citation text" value="'+escapeHtml(src.text||'')+'">'+
-          '<input type="text" class="src-url" placeholder="https://..." value="'+escapeHtml(src.url||'')+'">'+
-          '<button type="button" class="subtle remove-source-row" title="Remove this source">&times;</button>'+
-        '</div>'+
-        '<div class="source-prov">'+
-          '<label class="sp-lab">Written</label>'+
-          '<input type="text" class="src-year" placeholder="year" value="'+(src.sy!==undefined&&src.sy!==null?src.sy:'')+'" style="width:64px;">'+
-          '<label class="sp-check"><input type="checkbox" class="src-approx"'+(src.sApprox?' checked':'')+'> approx</label>'+
-          '<select class="src-access">'+
-            accOpt('','access — unknown')+accOpt('firsthand','firsthand (writer present)')+accOpt('secondhand','secondhand (not present)')+
-          '</select>'+
-        '</div>';
-      row.querySelector('.remove-source-row').addEventListener('click', function(){ row.remove(); });
-      sourceRowsEl.appendChild(row);
-    }
-    if(existing && existing.sources && existing.sources.length){
-      existing.sources.forEach(function(s){ addSourceRow(s); });
-    }else{
-      addSourceRow();
-    }
-    overlay.querySelector('#addSourceRowBtn').addEventListener('click', function(){ addSourceRow(); });
-
-    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
-    overlay.querySelector('#cancelEntryBtn').addEventListener('click', function(){ overlay.remove(); });
-    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
-
-    overlay.querySelector('#saveEntryBtn').addEventListener('click', function(){
-      var year = parseInt(document.getElementById('f_year').value, 10);
-      var title = document.getElementById('f_title').value.trim();
-      if(!title || isNaN(year)){
-        alert('Please provide at least a title and a year.');
-        return;
-      }
-      var month = parseInt(document.getElementById('f_month').value, 10);
-      var day = parseInt(document.getElementById('f_day').value, 10);
-      var rYear = parseInt(document.getElementById('f_ryear').value, 10);
-      var rMonth = parseInt(document.getElementById('f_rmonth').value, 10);
-      var rDay = parseInt(document.getElementById('f_rday').value, 10);
-      var leftoverPerson = peopleTextInput.value.trim();
-      if(leftoverPerson && !peopleList.some(function(p){ return p.toLowerCase()===leftoverPerson.toLowerCase(); })){
-        peopleList.push(leftoverPerson);
-      }
-      var people = peopleList.slice();
-      var sources = [];
-      sourceRowsEl.querySelectorAll('.source-block').forEach(function(row){
-        var text = row.querySelector('.src-text').value.trim();
-        var url = row.querySelector('.src-url').value.trim();
-        if(url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-        var syRaw = parseInt(row.querySelector('.src-year').value, 10);
-        var access = row.querySelector('.src-access').value;
-        var approx = row.querySelector('.src-approx').checked;
-        if(text || url){
-          var obj = {text: text, url: url};
-          if(!isNaN(syRaw)) obj.sy = syRaw;
-          if(!isNaN(syRaw) && approx) obj.sApprox = true;
-          if(access) obj.access = access;
-          sources.push(obj);
-        }
-      });
-      if(typeof state.nextRefId !== 'number' || isNaN(state.nextRefId)) state.nextRefId = 1;
-      var entry = {
-        id: existing ? existing.id : genId('e'),
-        refId: existing ? existing.refId : formatRefId(state.nextRefId),
-        cat: document.getElementById('f_cat').value,
-        importance: document.getElementById('f_importance').value,
-        title: title,
-        y: year,
-        m: isNaN(month)? undefined : month,
-        d: isNaN(day)? undefined : day,
-        approx: document.getElementById('f_approx').checked,
-        recordedY: isNaN(rYear) ? undefined : rYear,
-        recordedM: isNaN(rMonth) ? undefined : rMonth,
-        recordedD: isNaN(rDay) ? undefined : rDay,
-        recordedApprox: document.getElementById('f_rapprox').checked,
-        people: people,
-        themes: entryThemes.slice(),
-        desc: document.getElementById('f_desc').value.trim(),
-        sources: sources,
-        researchNotes: document.getElementById('f_researchnotes').value.trim()
-      };
-      if(!existing) state.nextRefId++;
-      if(isEdit){
-        var idx = state.entries.findIndex(function(x){ return x.id===existing.id; });
-        state.entries[idx] = entry;
-      }else{
-        state.entries.push(entry);
-      }
-      saveState();
-      overlay.remove();
-      render();
-    });
-  }
-
-  /* ============================= MANAGE CATEGORIES ============================= */
-
-  function openManageCategories(){
-    if(!isAdmin) return;
-    var overlay = document.createElement('div');
-    overlay.className = 'overlay center';
-    overlay.innerHTML =
-      '<div class="panel modal panel-relative" style="width:460px;">'+
-        '<button class="close-x">&times;</button>'+
-        '<h2>Manage categories</h2>'+
-        '<div id="catRows"></div>'+
-        '<div class="actions"><button id="addCatBtn">+ Add category</button><button class="ghost" id="closeCatBtn">Done</button></div>'+
-      '</div>';
-    document.body.appendChild(overlay);
-
-    function renderRows(){
-      var wrap = overlay.querySelector('#catRows');
-      wrap.innerHTML = '';
-      state.categories.forEach(function(cat){
-        var row = document.createElement('div');
-        row.className = 'cat-manage-row';
-        var count = state.entries.filter(function(e){return e.cat===cat.id;}).length;
-        row.innerHTML =
-          '<input type="color" value="'+cat.color+'" data-id="'+cat.id+'">'+
-          '<input type="text" value="'+escapeHtml(cat.name)+'" data-id="'+cat.id+'">'+
-          '<button class="subtle" data-del="'+cat.id+'" title="Delete category">Delete ('+count+')</button>';
-        wrap.appendChild(row);
-      });
-      wrap.querySelectorAll('input[type=color]').forEach(function(inp){
-        inp.addEventListener('input', function(){
-          catById(inp.dataset.id).color = inp.value;
-          saveState(); render();
-        });
-      });
-      wrap.querySelectorAll('input[type=text]').forEach(function(inp){
-        inp.addEventListener('change', function(){
-          catById(inp.dataset.id).name = inp.value.trim() || 'Untitled';
-          saveState(); render();
-        });
-      });
-      wrap.querySelectorAll('button[data-del]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var id = btn.dataset.del;
-          if(state.categories.length <= 1){ alert('Keep at least one category.'); return; }
-          var count = state.entries.filter(function(e){return e.cat===id;}).length;
-          var msg = count ? ('Delete this category and its '+count+' entries? This cannot be undone.') : 'Delete this empty category?';
-          if(confirm(msg)){
-            var deletedIds = state.entries.filter(function(e){return e.cat===id;}).map(function(e){return e.id;});
-            state.categories = state.categories.filter(function(c){return c.id!==id;});
-            state.entries = state.entries.filter(function(e){return e.cat!==id;});
-            saveState();
-            if(deletedIds.length){
-              var before = focusState.ids.length;
-              focusState.ids = focusState.ids.filter(function(fid){ return deletedIds.indexOf(fid) === -1; });
-              if(focusState.ids.length !== before){ saveFocusState(); renderFocusList(); }
-            }
-            renderRows(); render();
-          }
-        });
-      });
-    }
-    renderRows();
-
-    overlay.querySelector('#addCatBtn').addEventListener('click', function(){
-      state.categories.push({id: genId('cat'), name:'New category', color: nextColor()});
-      saveState(); renderRows(); render();
-    });
-    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
-    overlay.querySelector('#closeCatBtn').addEventListener('click', function(){ overlay.remove(); });
-    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
-  }
-
-  /* ============================= MANAGE THEMES ============================= */
-  // Unlike categories, deleting a theme does NOT delete entries — it's a
-  // cross-cutting tag, not a container, so deleting one just untags whatever
-  // entries carried it.
-
-  function openManageThemes(){
-    if(!isAdmin) return;
-    var overlay = document.createElement('div');
-    overlay.className = 'overlay center';
-    overlay.innerHTML =
-      '<div class="panel modal panel-relative" style="width:460px;">'+
-        '<button class="close-x">&times;</button>'+
-        '<h2>Manage themes</h2>'+
-        '<div class="field" style="margin-top:-4px;"><div class="val" style="font-size:12.5px; color:var(--ink-soft);">Curated, cross-cutting tags (e.g. Conflict, Theological Shift) — an entry can carry more than one. Assign them per entry from the entry edit form.</div></div>'+
-        '<div id="themeRows" style="margin-top:10px;"></div>'+
-        '<div class="actions"><button id="addThemeBtn">+ Add theme</button><button class="ghost" id="closeThemeBtn">Done</button></div>'+
-      '</div>';
-    document.body.appendChild(overlay);
-
-    function renderRows(){
-      var wrap = overlay.querySelector('#themeRows');
-      wrap.innerHTML = '';
-      (state.themes||[]).forEach(function(theme){
-        var row = document.createElement('div');
-        row.className = 'cat-manage-row';
-        var count = state.entries.filter(function(e){return (e.themes||[]).includes(theme.id);}).length;
-        row.innerHTML =
-          '<input type="color" value="'+theme.color+'" data-id="'+theme.id+'">'+
-          '<input type="text" value="'+escapeHtml(theme.name)+'" data-id="'+theme.id+'">'+
-          '<button class="subtle" data-del="'+theme.id+'" title="Delete theme">Delete ('+count+')</button>';
-        wrap.appendChild(row);
-      });
-      wrap.querySelectorAll('input[type=color]').forEach(function(inp){
-        inp.addEventListener('input', function(){
-          themeById(inp.dataset.id).color = inp.value;
-          saveState(); render();
-        });
-      });
-      wrap.querySelectorAll('input[type=text]').forEach(function(inp){
-        inp.addEventListener('change', function(){
-          themeById(inp.dataset.id).name = inp.value.trim() || 'Untitled';
-          saveState(); render();
-        });
-      });
-      wrap.querySelectorAll('button[data-del]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          var id = btn.dataset.del;
-          var count = state.entries.filter(function(e){return (e.themes||[]).includes(id);}).length;
-          var msg = count ? ('Delete this theme? It will be removed from '+count+' entr'+(count===1?'y':'ies')+', which will not otherwise be affected.') : 'Delete this unused theme?';
-          if(confirm(msg)){
-            state.themes = state.themes.filter(function(t){return t.id!==id;});
-            state.entries.forEach(function(e){
-              if(e.themes) e.themes = e.themes.filter(function(tid){ return tid!==id; });
-            });
-            if(uiState.theme === id) uiState.theme = '';
-            saveState();
-            renderRows(); render();
-          }
-        });
-      });
-    }
-    renderRows();
-
-    overlay.querySelector('#addThemeBtn').addEventListener('click', function(){
-      state.themes.push({id: genId('theme'), name:'New theme', color: nextThemeColor()});
-      saveState(); renderRows(); render();
-    });
-    overlay.querySelector('.close-x').addEventListener('click', function(){ overlay.remove(); });
-    overlay.querySelector('#closeThemeBtn').addEventListener('click', function(){ overlay.remove(); });
-    overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
-  }
+  // Adding, editing, deleting entries, and managing categories/themes all
+  // moved to the admin CMS, which writes to Supabase directly. This page
+  // only reads.
 
   /* ============================= REPORT AN ISSUE ============================= */
   // One shared modal serving two entry points: the flag button in an entry's
@@ -3519,46 +2798,9 @@
     }
   }
 
-  /* ============================= ADMIN LOCK ============================= */
-
-  function updateAdminUI(){
-    var btn = document.getElementById('adminToggleBtn');
-    var controls = document.getElementById('adminControls');
-    // Note: write to the inner span, not the footer itself — the footer also
-    // holds the "Report an issue" button, which setting textContent would wipe.
-    var footer = document.getElementById('hintFooterText');
-    controls.style.display = isAdmin ? 'flex' : 'none';
-    if(isAdmin){
-      btn.textContent = '\u26BF Admin unlocked';
-      btn.classList.add('unlocked');
-      footer.textContent = 'Admin unlocked — you can add, edit, reorder, and export from here.';
-    }else{
-      btn.textContent = '\u26BF Admin';
-      btn.classList.remove('unlocked');
-      footer.textContent = 'Click any entry for details and nearby events. Browsing is open to everyone — unlock Admin below to add, edit, or reorganize.';
-    }
-  }
-
-  document.getElementById('adminToggleBtn').addEventListener('click', function(){
-    if(isAdmin){
-      isAdmin = false;
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
-      updateAdminUI();
-      render();
-    }else{
-      var pw = prompt('Enter the admin password to unlock editing:');
-      if(pw === null) return;
-      if(pw === ADMIN_PASSWORD){
-        isAdmin = true;
-        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
-        updateAdminUI();
-        render();
-      }else{
-        alert('That password is not correct.');
-      }
-    }
-  });
-  updateAdminUI();
+  // Login is now handled entirely by the separate admin CMS (see the
+  // "Log in" link in the footer) -- there is no admin mode on this page at
+  // all anymore, so there's nothing to lock or unlock here.
 
   document.getElementById('focusToggleBtn').addEventListener('click', function(){
     focusState.open = !focusState.open;
@@ -3630,68 +2872,8 @@
     // Only show a label for the named (non-default) levels; blank at/near default.
     el.textContent = (best.key === 'default') ? '' : best.label;
   }
-  document.getElementById('addEntryBtn').addEventListener('click', function(){ openEntryForm(null); });
-  document.getElementById('manageCatsBtn').addEventListener('click', openManageCategories);
-  document.getElementById('manageThemesBtn').addEventListener('click', openManageThemes);
   // General report — no entry passed, so the modal opens without entry context.
   document.getElementById('reportGeneralBtn').addEventListener('click', function(){ openReportModal(null); });
-
-  document.getElementById('exportBtn').addEventListener('click', function(){
-    if(!isAdmin) return;
-    var blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = 'joseph-smith-timeline-data.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  });
-  document.getElementById('importBtn').addEventListener('click', function(){
-    if(!isAdmin) return;
-    document.getElementById('importFile').click();
-  });
-  document.getElementById('importFile').addEventListener('change', function(e){
-    if(!isAdmin) return;
-    var file = e.target.files[0];
-    if(!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){
-      try{
-        var parsed = JSON.parse(reader.result);
-        if(parsed && parsed.categories && parsed.entries){
-          if(confirm('Replace the current board with the imported data?')){
-            parsed.entries.forEach(normalizeEntry);
-            ensureRefIds(parsed);
-            if(!Array.isArray(parsed.themes)) parsed.themes = DEFAULT_THEMES.slice();
-            state = parsed;
-            uiState.collapsedCats = {};
-            uiState.selectedId = null;
-            uiState.theme = '';
-            uiState.colOrder = null;
-            saveState();
-            render();
-          }
-        }else{
-          alert('That file doesn\'t look like a valid timeline export.');
-        }
-      }catch(err){
-        alert('Could not read that file as JSON.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
-
-  // Column "+ add" buttons (delegated, since columns re-render)
-  boardInner.addEventListener('click', function(ev){
-    if(ev.target.matches('.add-in-col')){
-      var catId = ev.target.dataset.cat;
-      openEntryForm(null);
-      setTimeout(function(){
-        var sel = document.getElementById('f_cat');
-        if(sel) sel.value = catId;
-      }, 0);
-    }
-  });
 
   window.addEventListener('resize', function(){ drawThreads(minMaxYear(), uiState.zoom); });
 
